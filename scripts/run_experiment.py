@@ -1,5 +1,5 @@
 from pathlib import Path
-import argparse, hashlib, json, time
+import argparse, hashlib, json, platform, time, sys
 import numpy as np
 import torch
 from flowoe_execution.data import load_fi2010, load_l2_csv, load_trades_csv
@@ -27,6 +27,9 @@ def main():
     ap.add_argument('--l2-max-rows', type=int, default=200000)
     ap.add_argument('--train-ratio', type=float, default=0.60)
     ap.add_argument('--allow-book-vwap', action='store_true', help='Allow the depth-weighted proxy for a real run (not a trade-VWAP evidence run).')
+    ap.add_argument('--side', choices=['buy', 'sell'], default='buy')
+    ap.add_argument('--quantity', type=float, default=1.0)
+    ap.add_argument('--instrument', default='BTCUSDT')
     args = ap.parse_args()
     torch.manual_seed(7); np.random.seed(7)
 
@@ -88,7 +91,7 @@ def main():
             opt.zero_grad(); loss.backward(); opt.step()
     train_s = time.perf_counter() - t0
 
-    sim = ExecutionSimulator(quantity=1.0); baseline, policy = [], []
+    sim = ExecutionSimulator(quantity=args.quantity, side=args.side); baseline, policy = [], []
     baseline_completion, policy_completion = [], []
     benchmark_name = 'trade_vwap' if trades is not None else 'book_vwap'
     for i in range(ntrain, len(l2.snapshots)-horizon, horizon*3):
@@ -112,6 +115,19 @@ def main():
 
     report = {
         'dataset': dataset_name,
+        'instrument': args.instrument,
+        'side': args.side,
+        'quantity': args.quantity,
+        'context_length': ctx_n,
+        'horizon': horizon,
+        'sampling_steps': 24,
+        'train_ratio': args.train_ratio,
+        'python_version': sys.version.split()[0],
+        'platform': platform.platform(),
+        'torch_version': torch.__version__,
+        'cuda_available': bool(torch.cuda.is_available()),
+        'cuda_version': torch.version.cuda,
+        'gpu': torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
         'fi_path': str(fi_path), 'fi_sha256': file_sha256(fi_path),
         'l2_path': str(l2_path), 'l2_sha256': file_sha256(l2_path),
         'trades_path': str(trade_path) if trade_path else None,
