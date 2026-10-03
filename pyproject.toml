@@ -1,41 +1,27 @@
-[tool.pytest.ini_options]
-addopts = [
-  "--color=yes",
-  "--durations=0",
-  "--strict-markers",
-  "--doctest-modules",
-]
-filterwarnings = [
-  "ignore::DeprecationWarning",
-  "ignore::UserWarning",
-]
-log_cli = "True"
-markers = [
-  "slow: slow tests",
-]
-minversion = "6.0"
-testpaths = "tests/"
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: nocover",
-    "raise NotImplementedError",
-    "raise NotImplementedError()",
-    "if __name__ == .__main__.:",
-]
-
-[tool.ruff]
-line-length = 99
-
-[tool.ruff.lint]
-ignore = ["C901", "E501", "E741", "W605", "C408", "E402"]
-select = ["C", "E", "F", "I", "W"]
-
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["E402", "F401", "F403", "F811"]
-
-[tool.ruff.lint.isort]
-known-first-party = ["src"]
-known-third-party = ["torch", "transformers", "wandb"]
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
 
+[project]
+name = "flowoe-execution"
+version = "0.1.0"
+description = "Conditional flow matching and ODE-based execution research toolkit"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "pandas>=2.0", "torch>=2.1", "pyyaml>=6.0"]
 
+[project.optional-dependencies]
+research = ["scipy>=1.10", "scikit-learn>=1.3"]
+upstream = ["torchcfm", "torchdyn>=1.0.6"]
+gpu = ["ninja>=1.11", "tensorrt"]
+accelerated = ["ninja>=1.11", "tensorrt", "torch2trt_dynamic"]
+test = ["pytest>=7.0"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
