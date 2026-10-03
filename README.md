@@ -8,7 +8,7 @@ This branch turns the mechanically merged upstream code into a coherent project.
 
 ### Continuous Normalizing Flows / Probability Flow ODEs
 
-`CFMPolicy` implements the simulation-free conditional flow-matching objective and samples a learned vector field through an RK4 ODE. `ProbabilityFlowODEPolicy` separately implements a conditional variance-preserving score objective and reverse-time probability-flow ODE.
+`CFMPolicy` implements the simulation-free conditional flow-matching objective and samples a learned vector field through an RK4 ODE. `ProbabilityFlowODEPolicy` separately implements a conditional variance-preserving score objective and reverse-time probability-flow ODE. The FI-2010 side is used as a genuine auxiliary five-horizon movement-classification task through a shared temporal encoder; the Crypto L2 side then trains the execution vector field on the same shared temporal representation.
 
 ### Slippage against VWAP
 
