@@ -47,7 +47,7 @@ Large market-data files are deliberately not checked into Git.
 ## Quickstart
 
 ```bash
-python -m pip install -e .
+python -m pip install -e '.[test]'
 python -m pytest -q
 python scripts/run_experiment.py --smoke --epochs 120
 python scripts/benchmark_latency.py --steps 16 --runs 300
