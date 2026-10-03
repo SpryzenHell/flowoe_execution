@@ -1,0 +1,113 @@
+from pathlib import Path
+import argparse, json, time
+import numpy as np
+import torch
+from flowoe_execution.data import load_fi2010, load_l2_csv, load_trades_csv
+from flowoe_execution.features import l2_features, features_from_fi2010
+from flowoe_execution.model import CFMPolicy
+from flowoe_execution.execution import ExecutionSimulator, make_schedule_from_trajectory
+from flowoe_execution.metrics import improvement_bps, bootstrap_mean_ci
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def expert(mid_future, horizon):
+    z = -(mid_future[:horizon] - np.min(mid_future[:horizon])) / (np.std(mid_future[:horizon]) + 1e-6)
+    return make_schedule_from_trajectory(z)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--smoke', action='store_true')
+    ap.add_argument('--epochs', type=int, default=120)
+    ap.add_argument('--fi')
+    ap.add_argument('--l2')
+    ap.add_argument('--trades')
+    ap.add_argument('--fi-max-rows', type=int, default=50000)
+    ap.add_argument('--l2-max-rows', type=int, default=200000)
+    ap.add_argument('--train-ratio', type=float, default=0.60)
+    args = ap.parse_args()
+    torch.manual_seed(7); np.random.seed(7)
+
+    if args.smoke or (args.fi is None and args.l2 is None):
+        import subprocess
+        subprocess.run(['python', str(ROOT / 'scripts/generate_smoke_data.py')], check=True)
+        fi_path = ROOT / 'data/smoke/fi2010_smoke.txt'
+        l2_path = ROOT / 'data/smoke/crypto_l2.csv'
+        trade_path = ROOT / 'data/smoke/crypto_trades.csv'
+        dataset_name = 'synthetic smoke'
+    else:
+        if not (args.fi and args.l2):
+            raise SystemExit('--fi and --l2 are required together for a real-data run')
+        fi_path, l2_path = Path(args.fi), Path(args.l2)
+        trade_path = Path(args.trades) if args.trades else None
+        dataset_name = 'user-supplied real data'
+
+    l2 = load_l2_csv(l2_path, max_rows=args.l2_max_rows)
+    trades = load_trades_csv(trade_path) if trade_path else None
+    fi = load_fi2010(fi_path, max_rows=args.fi_max_rows)
+    x_crypto = torch.from_numpy(l2_features(l2.snapshots))
+    ntrain = int(len(l2.snapshots) * args.train_ratio)
+    ctx_n, horizon, stride = 32, 8, 8
+    train_ctx, train_y = [], []
+    mids = ((l2.snapshots.bid0 + l2.snapshots.ask0) / 2).to_numpy(np.float32)
+    for i in range(0, ntrain - ctx_n - horizon, stride):
+        train_ctx.append(x_crypto[i:i+ctx_n])
+        train_y.append(torch.tensor(expert(mids[i+ctx_n:i+ctx_n+horizon], horizon), dtype=torch.float32))
+
+    fi_x = torch.from_numpy(features_from_fi2010(fi.features))
+    fi_ctx, fi_y = [], []
+    for i in range(0, min(ntrain, len(fi.features)-ctx_n-horizon), stride):
+        fi_ctx.append(fi_x[i:i+ctx_n])
+        codes = np.asarray(fi.labels[i+ctx_n:i+ctx_n+horizon], dtype=np.float32)
+        if codes.size and codes.min() >= 1 and codes.max() <= 3:
+            codes -= 1.0
+        horizon_signal = codes.mean(0) - 1.0
+        signal = np.interp(np.linspace(0, 4, horizon), np.arange(5), horizon_signal)
+        fi_y.append(torch.tensor(make_schedule_from_trajectory(-signal * np.linspace(0, 1, horizon)), dtype=torch.float32))
+
+    model = CFMPolicy(horizon=horizon)
+    opt = torch.optim.AdamW(model.parameters(), lr=2e-3, weight_decay=1e-4)
+    torch.set_num_threads(2)
+    model.train(); t0 = time.perf_counter()
+    for ep in range(args.epochs):
+        order = np.random.default_rng(ep).permutation(len(train_ctx))
+        for j in range(0, len(order), 64):
+            b = order[j:j+64]
+            c = torch.stack([train_ctx[k] for k in b]); y = torch.stack([train_y[k] for k in b])
+            loss = model.cfm_loss(c, y, 'crypto')
+            opt.zero_grad(); loss.backward(); torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step()
+        if fi_ctx:
+            idx = np.random.default_rng(ep + 1000).choice(len(fi_ctx), min(32, len(fi_ctx)), replace=False)
+            c = torch.stack([fi_ctx[k] for k in idx]); y = torch.stack([fi_y[k] for k in idx])
+            loss = model.cfm_loss(c, y, 'fi2010')
+            opt.zero_grad(); loss.backward(); opt.step()
+    train_s = time.perf_counter() - t0
+
+    sim = ExecutionSimulator(quantity=1.0); baseline, policy = [], []
+    benchmark_name = 'trade_vwap' if trades is not None else 'book_vwap'
+    for i in range(ntrain, len(l2.snapshots)-horizon, horizon*3):
+        ctx = x_crypto[i-ctx_n:i].unsqueeze(0)
+        with torch.no_grad():
+            pred = model.sample(ctx, 'crypto', steps=24)[0].numpy()
+        r_flow = sim.run(l2.snapshots.iloc[i:i+horizon], make_schedule_from_trajectory(pred), benchmark=benchmark_name, trades=trades, strategy='flowoe')
+        r_twap = sim.run(l2.snapshots.iloc[i:i+horizon], np.ones(horizon)/horizon, benchmark=benchmark_name, trades=trades, strategy='twap')
+        baseline.append(r_twap.slippage_bps); policy.append(r_flow.slippage_bps)
+
+    b, bci = bootstrap_mean_ci(baseline); p, pci = bootstrap_mean_ci(policy)
+    report = {
+        'dataset': dataset_name, 'train_windows': len(train_ctx), 'fi_windows': len(fi_ctx),
+        'epochs': args.epochs, 'training_seconds': train_s, 'episodes': len(policy),
+        'twap_slippage_bps_mean': b, 'twap_slippage_bps_ci95': bci,
+        'flowoe_slippage_bps_mean': p, 'flowoe_slippage_bps_ci95': pci,
+        'benchmark': benchmark_name, 'improvement_vs_twap_bps': improvement_bps(b, p),
+        'note': 'Synthetic smoke data only; not FI-2010 or real crypto L2.' if dataset_name.startswith('synthetic') else 'User-supplied real data; verify source/license provenance.'
+    }
+    out = ROOT / 'results'; out.mkdir(exist_ok=True)
+    torch.save(model.state_dict(), out / ('cfm_policy_smoke.pt' if dataset_name.startswith('synthetic') else 'cfm_policy.pt'))
+    (out / ('smoke_experiment.json' if dataset_name.startswith('synthetic') else 'real_experiment.json')).write_text(json.dumps(report, indent=2))
+    print(json.dumps(report, indent=2))
+
+
+if __name__ == '__main__':
+    main()
