@@ -18,6 +18,23 @@ def main():
     fi = load_fi2010(args.fi, max_rows=args.fi_max_rows)
     l2 = load_l2_csv(args.l2, max_rows=args.l2_max_rows)
     trades = load_trades_csv(args.trades)
+    if not np.isfinite(fi.features).all():
+        raise SystemExit("FI-2010 features contain non-finite values")
+    if fi.labels.shape[1] != 5:
+        raise SystemExit("FI-2010 must have five horizon labels")
+    if not set(np.unique(fi.labels).tolist()).issubset({-1, 0, 1, 2, 3}):
+        raise SystemExit("Unexpected FI-2010 label encoding")
+    if l2.snapshots.empty:
+        raise SystemExit("L2 input is empty")
+    if (l2.snapshots.ask0 <= l2.snapshots.bid0).any():
+        raise SystemExit("L2 contains crossed or locked top-of-book rows")
+    size_cols = [c for i in range(10) for c in (f"bid_size{i}", f"ask_size{i}")]
+    if (l2.snapshots[size_cols].to_numpy(float) < 0).any():
+        raise SystemExit("L2 contains negative displayed sizes")
+    if trades.empty:
+        raise SystemExit("Trade input is empty")
+    if (trades.price.to_numpy(float) <= 0).any() or (trades.qty.to_numpy(float) <= 0).any():
+        raise SystemExit("Trades must have positive price and quantity")
     mids = (l2.snapshots.bid0 + l2.snapshots.ask0).to_numpy(float)
     spreads_bps = (l2.snapshots.ask0 - l2.snapshots.bid0) / np.maximum(mids, 1e-12) * 1e4
     start, end = l2.snapshots.timestamp.min(), l2.snapshots.timestamp.max()
