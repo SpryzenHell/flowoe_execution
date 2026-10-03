@@ -82,9 +82,10 @@ The policy is fitted only on the earlier observations and evaluated on later obs
 python -m pip install -e '.[accelerated]'
 python scripts/build_trt_engine.py
 python scripts/benchmark_trt.py --runs 500
+python scripts/benchmark_cuda_fused.py --steps 16 --runs 300
 ```
 
-Record GPU model, driver, CUDA, TensorRT, PyTorch, batch size, ODE steps, warmup count, p50/p95/p99, speedup, and output error with every performance run.
+Record GPU model, CUDA, TensorRT, PyTorch, batch size, ODE steps, warmup count, p50/p95/p99, speedup, and output error with every performance run. The fused CUDA benchmark writes results/cuda_fused_latency.json; the TensorRT benchmark writes results/tensorrt_latency.json.
 
 ## Data acquisition
 
