@@ -89,6 +89,7 @@ def main():
     train_s = time.perf_counter() - t0
 
     sim = ExecutionSimulator(quantity=1.0); baseline, policy = [], []
+    baseline_completion, policy_completion = [], []
     benchmark_name = 'trade_vwap' if trades is not None else 'book_vwap'
     for i in range(ntrain, len(l2.snapshots)-horizon, horizon*3):
         ctx = x_crypto[i-ctx_n:i].unsqueeze(0)
@@ -97,6 +98,7 @@ def main():
         r_flow = sim.run(l2.snapshots.iloc[i:i+horizon], make_schedule_from_trajectory(pred), benchmark=benchmark_name, trades=trades, strategy='flowoe')
         r_twap = sim.run(l2.snapshots.iloc[i:i+horizon], np.ones(horizon)/horizon, benchmark=benchmark_name, trades=trades, strategy='twap')
         baseline.append(r_twap.slippage_bps); policy.append(r_flow.slippage_bps)
+        baseline_completion.append(r_twap.completion); policy_completion.append(r_flow.completion)
 
     twap_stats = summary_stats(baseline)
     flow_stats = summary_stats(policy)
@@ -118,6 +120,8 @@ def main():
         'epochs': args.epochs, 'training_seconds': train_s, 'episodes': len(policy),
         'twap_slippage_bps': twap_stats,
         'flowoe_slippage_bps': flow_stats,
+        'twap_completion_mean': float(np.mean(baseline_completion)) if baseline_completion else None,
+        'flowoe_completion_mean': float(np.mean(policy_completion)) if policy_completion else None,
         'benchmark': benchmark_name,
         'improvement_vs_twap_bps': improvement_bps(twap_stats['mean'], flow_stats['mean']),
         'note': 'Synthetic smoke data only; not FI-2010 or real crypto L2.' if dataset_name.startswith('synthetic') else ('User-supplied real data with trade VWAP.' if trades is not None else 'User-supplied real data with book-VWAP proxy; not the resume evidence benchmark.')
