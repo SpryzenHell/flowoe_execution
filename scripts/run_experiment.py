@@ -1,5 +1,5 @@
 from pathlib import Path
-import argparse, json, time
+import argparse, hashlib, json, time
 import numpy as np
 import torch
 from flowoe_execution.data import load_fi2010, load_l2_csv, load_trades_csv
@@ -26,6 +26,7 @@ def main():
     ap.add_argument('--fi-max-rows', type=int, default=50000)
     ap.add_argument('--l2-max-rows', type=int, default=200000)
     ap.add_argument('--train-ratio', type=float, default=0.60)
+    ap.add_argument('--allow-book-vwap', action='store_true', help='Allow the depth-weighted proxy for a real run (not a trade-VWAP evidence run).')
     args = ap.parse_args()
     torch.manual_seed(7); np.random.seed(7)
 
@@ -40,6 +41,8 @@ def main():
         if not (args.fi and args.l2):
             raise SystemExit('--fi and --l2 are required together for a real-data run')
         fi_path, l2_path = Path(args.fi), Path(args.l2)
+        if not args.trades and not args.allow_book_vwap:
+            raise SystemExit('--trades is required for the real-data evidence run; use --allow-book-vwap only for a proxy run.')
         trade_path = Path(args.trades) if args.trades else None
         dataset_name = 'user-supplied real data'
 
@@ -95,13 +98,24 @@ def main():
         baseline.append(r_twap.slippage_bps); policy.append(r_flow.slippage_bps)
 
     b, bci = bootstrap_mean_ci(baseline); p, pci = bootstrap_mean_ci(policy)
+    def file_sha256(path):
+        h = hashlib.sha256()
+        with open(path, 'rb') as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b''):
+                h.update(chunk)
+        return h.hexdigest()
+
     report = {
-        'dataset': dataset_name, 'train_windows': len(train_ctx), 'fi_windows': len(fi_ctx),
+        'dataset': dataset_name,
+        'fi_path': str(fi_path), 'fi_sha256': file_sha256(fi_path),
+        'l2_path': str(l2_path), 'l2_sha256': file_sha256(l2_path),
+        'trades_path': str(trade_path) if trade_path else None,
+        'trades_sha256': file_sha256(trade_path) if trade_path else None, 'train_windows': len(train_ctx), 'fi_windows': len(fi_ctx),
         'epochs': args.epochs, 'training_seconds': train_s, 'episodes': len(policy),
         'twap_slippage_bps_mean': b, 'twap_slippage_bps_ci95': bci,
         'flowoe_slippage_bps_mean': p, 'flowoe_slippage_bps_ci95': pci,
         'benchmark': benchmark_name, 'improvement_vs_twap_bps': improvement_bps(b, p),
-        'note': 'Synthetic smoke data only; not FI-2010 or real crypto L2.' if dataset_name.startswith('synthetic') else 'User-supplied real data; verify source/license provenance.'
+        'note': 'Synthetic smoke data only; not FI-2010 or real crypto L2.' if dataset_name.startswith('synthetic') else ('User-supplied real data with trade VWAP.' if trades is not None else 'User-supplied real data with book-VWAP proxy; not the resume evidence benchmark.')
     }
     out = ROOT / 'results'; out.mkdir(exist_ok=True)
     torch.save(model.state_dict(), out / ('cfm_policy_smoke.pt' if dataset_name.startswith('synthetic') else 'cfm_policy.pt'))
