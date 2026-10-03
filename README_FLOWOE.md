@@ -1,36 +1,118 @@
 # FlowOE Execution — Project Layer
 
-This branch adds a clean project-specific execution layer on top of the three upstream codebases already present in the repository: Conditional Flow Matching, TorchDyn, and torch2trt_dynamic.
+This branch adds the project-specific execution research layer on top of the three upstream codebases already present in the repository:
 
-## What is implemented
+- Conditional Flow Matching: `atong01/conditional-flow-matching`
+- Neural ODE numerics: `DiffEqML/torchdyn`
+- PyTorch → TensorRT conversion: `grimoire/torch2trt_dynamic`
 
-### 1. Continuous Flow Matching
-`src/flowoe_execution/model.py` contains `CFMPolicy`. It trains a conditional vector field using the simulation-free CFM objective and generates execution trajectories with a fixed RK4 ODE integrator.
+The upstream trees are retained for provenance; the clean FlowOE implementation lives under `src/flowoe_execution/`.
 
-### 2. Probability-flow ODE
-`ProbabilityFlowODEPolicy` implements a conditional VP score objective and reverse-time probability-flow ODE sampler. It is kept as a separate model so CFM and probability-flow experiments can be compared rather than conflated.
+## 1. Model
 
-### 3. L2 + FI-2010 data layer
-- `load_fi2010` validates the expected 144 feature columns plus five label columns.
-- `load_l2_csv` consumes canonical top-10 L2 snapshots.
-- `reconstruct_binance_t_depth.py` converts row-based depth updates into the canonical snapshot format.
-- FI-2010 is an auxiliary microstructure representation; raw execution prices come from crypto L2/trades, not normalized FI-2010 features.
+### Conditional Flow Matching
 
-### 4. Execution simulation
-`ExecutionSimulator` replays generated child-order schedules against top-of-book liquidity and reports slippage in basis points. With trade prints it uses true trade VWAP; without trades it reports a clearly labeled book-VWAP proxy.
+`CFMPolicy` learns a conditional vector field with the simulation-free CFM objective. Random base trajectories are transported toward target execution schedules, and an RK4 ODE integrates the learned field from (t=0) to (t=1).
 
-### 5. TensorRT / CUDA path
-`FixedStepCryptoSampler` removes the dynamic Python ODE loop and exposes a fixed-step forward pass suitable for TensorRT conversion. `build_trt_engine.py` requests INT8 calibration and refuses to claim an engine on a non-CUDA machine. `benchmark_trt.py` reports p50/p95/p99, speedup, and maximum output error.
+The context encoder has source-specific input projections for:
 
-A small CUDA extension skeleton is also included under `src/flowoe_execution/cuda/` for a fused Euler update. It is deliberately benchmarked separately from the TensorRT path; no fabricated `<2 ms p99` number is committed.
+- FI-2010: 144 normalized LOB-derived features.
+- Crypto L2: 45 engineered features from top-10 depth, spread, microprice, imbalance, volatility and OFI.
 
-## Local validation
+Those projections feed a shared temporal convolutional block. FI-2010 supplies a five-horizon auxiliary movement-classification loss, while Crypto L2 supplies the execution-policy CFM loss. This makes the data augmentation path explicit rather than converting FI labels directly into artificial order schedules.
 
-The offline smoke path has four pytest tests and a full train → sample → execute → VWAP pipeline. The captured 120-epoch smoke run used 445 crypto training windows, 450 FI-style auxiliary windows, and 100 held-out execution episodes. It measured 1.2766 bps for TWAP and 1.2751 bps for FlowOE, an observed difference of 0.0015 bps. These are synthetic regression results, **not** FI-2010/real-crypto results.
+### Probability-flow ODE
 
-The CPU PyTorch latency capture for 16 ODE steps was 3.637 ms p99. CUDA/TensorRT were unavailable in that environment, so the resume target `<2 ms p99` is not claimed by the repository until it is measured on a CUDA/TensorRT host.
+`ProbabilityFlowODEPolicy` trains a conditional variance-preserving score network and integrates the corresponding reverse-time probability-flow ODE. It is kept separate from the CFM policy so the two trajectory-generation approaches can be evaluated independently.
 
-## Commands
+## 2. Market-data layer
+
+### FI-2010
+
+`load_fi2010` validates the NoAuction ZScore representation as 144 feature columns plus five horizon labels and also handles mirrors that store the matrix transposed.
+
+The recommended auxiliary training file is:
+
+`Train_Dst_NoAuction_ZScore_CF_7.txt`
+
+The standard FI-2010 anchored protocol uses the cumulative first seven training days and the corresponding later held-out days.
+
+### Crypto L2
+
+The execution benchmark consumes canonical top-10 snapshots:
+
+`timestamp, bid0..bid9, bid_size0..bid_size9, ask0..ask9, ask_size0..ask_size9`
+
+`scripts/reconstruct_binance_t_depth.py` reconstructs these snapshots from row-based Binance T_DEPTH data and records event-sequence gaps. It can fail closed with `--fail-on-gap`.
+
+Trade prints are normalized to:
+
+`timestamp, price, qty, trade_id`
+
+by `scripts/download_binance_trades.py`.
+
+## 3. Execution simulation
+
+`ExecutionSimulator` replays a child-order schedule one time bucket at a time and consumes the full configured L2 depth level-by-level.
+
+For a buy:
+
+`ask0 → ask1 → ... → ask9`
+
+are consumed until the child order is filled or the configured depth is exhausted. Sell execution mirrors this over the bid side.
+
+The economic benchmark is trade VWAP over the same execution window. A book-VWAP proxy remains available for diagnostics, but a real evidence run requires matching trade prints by default.
+
+The result records:
+
+- requested and executed quantity;
+- completion ratio;
+- average execution price;
+- VWAP benchmark;
+- slippage in basis points;
+- number of L2 levels consumed.
+
+## 4. Experimental protocol
+
+The real-data runner uses a chronological split:
+
+`earlier observations → training → later observations → execution evaluation`
+
+No future price or future trade stream is fed into the policy context during evaluation.
+
+The training target is generated from future training-period information only; evaluation schedules are sampled from the learned policy using the current L2 context.
+
+Each run records:
+
+- dataset paths;
+- SHA-256 hashes;
+- number of training windows;
+- FI auxiliary windows;
+- evaluation episode count;
+- mean / median / p95 slippage;
+- bootstrap 95% confidence interval;
+- benchmark type;
+- training time.
+
+`scripts/validate_real_data.py` is an explicit pre-flight gate and refuses to validate a real VWAP experiment unless trades overlap the L2 evaluation window.
+
+## 5. TensorRT / CUDA deployment
+
+`FixedStepCryptoSampler` uses a fixed number of Euler steps over exactly the unit interval, avoiding a dynamic Python-controlled integration loop.
+
+The TensorRT path:
+
+`PyTorch FP32 → fixed-step graph → TensorRT INT8 calibration → engine → latency benchmark`
+
+uses the upstream `torch2trt_dynamic` implementation. The project installs that dependency directly from its Git repository in the `accelerated` extra because it is not maintained as a normal PyPI release.
+
+The CUDA extension provides a fused Euler update kernel. The fixed-step sampler can call that kernel through the optional `fused_step` callback, and `scripts/benchmark_cuda_fused.py` compares it with the native PyTorch update.
+
+The repository intentionally does not claim `<2 ms p99` until an actual target GPU benchmark records the result in `results/tensorrt_latency.json`.
+
+## 6. Commands
+
+### Offline regression
 
 ```bash
 python -m pip install -e .
@@ -39,21 +121,58 @@ python scripts/run_experiment.py --smoke --epochs 120
 python scripts/benchmark_latency.py --steps 16 --runs 300
 ```
 
-For real data:
+### FI-2010 acquisition
 
 ```bash
+python scripts/download_fi2010.py --source kaggle
+```
+
+Or use the manual Fairdata/ETSIN route printed by:
+
+```bash
+python scripts/download_fi2010.py --source manual
+```
+
+### Binance trade acquisition
+
+```bash
+python scripts/download_binance_trades.py \
+  --market um \
+  --symbol BTCUSDT \
+  --start 2025-01-01 \
+  --end 2025-01-02
+```
+
+### Real-data evidence run
+
+```bash
+python scripts/validate_real_data.py \
+  --fi data/real/fi2010/Train_Dst_NoAuction_ZScore_CF_7.txt \
+  --l2 data/real/crypto/BTCUSDT_l2.csv \
+  --trades data/real/crypto/BTCUSDT_trades.csv
+
 python scripts/run_experiment.py \
-  --fi data/real/fi2010/Train_Dst_NoAuction_ZScore_CF_1.txt \
+  --fi data/real/fi2010/Train_Dst_NoAuction_ZScore_CF_7.txt \
   --l2 data/real/crypto/BTCUSDT_l2.csv \
   --trades data/real/crypto/BTCUSDT_trades.csv
 ```
 
-For the GPU path:
+### CUDA / TensorRT
 
 ```bash
 python -m pip install -e '.[accelerated]'
+python scripts/build_cuda_extension.py
+python scripts/benchmark_cuda_fused.py --runs 1000
 python scripts/build_trt_engine.py
 python scripts/benchmark_trt.py --runs 500
 ```
 
-The benchmark output must be copied to `results/` only after an actual hardware run. Resume claims should be derived from those measured files, not from target values.
+## 7. Results policy
+
+Synthetic smoke results are regression evidence only.
+
+Real slippage claims require the saved real-data JSON, source provenance, overlapping trade VWAP, chronological split and clean depth-quality report.
+
+GPU latency claims require the saved TensorRT/CUDA benchmark plus GPU and software metadata.
+
+Resume numbers are derived from measured artifacts; target numbers are never written as if they were observations.
