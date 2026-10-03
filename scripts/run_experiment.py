@@ -61,9 +61,12 @@ def main():
     fi_x = torch.from_numpy(features_from_fi2010(fi.features))
     fi_ctx = []
     fi_labels = []
-    for i in range(0, min(ntrain, len(fi.features) - ctx_n - horizon), stride):
+    fi_ntrain = int(len(fi.features) * args.train_ratio)
+    for i in range(0, max(0, fi_ntrain - ctx_n), stride):
         fi_ctx.append(fi_x[i:i+ctx_n])
-        fi_labels.append(torch.tensor(fi.labels[i+ctx_n:i+ctx_n+5], dtype=torch.long))
+        # Each FI-2010 row carries five future-horizon labels; use the
+        # label vector attached to the final observation in the context.
+        fi_labels.append(torch.tensor(fi.labels[i + ctx_n - 1], dtype=torch.long))
 
 
     model = CFMPolicy(horizon=horizon)
