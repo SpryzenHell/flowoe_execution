@@ -31,6 +31,12 @@ def test_cfm_loss_and_sample():
     assert torch.isfinite(m.cfm_loss(c, y, "crypto"))
     assert m.sample(c, "crypto", steps=4).shape == (4, 8)
 
+def test_fi_auxiliary_loss():
+    m = CFMPolicy(8)
+    c = torch.randn(4, 16, 144)
+    labels = torch.randint(1, 4, (4, 5))
+    assert torch.isfinite(m.fi_aux_loss(c, labels))
+
 def test_probability_flow_ode():
     m = ProbabilityFlowODEPolicy(8)
     c = torch.randn(2, 16, 45)
