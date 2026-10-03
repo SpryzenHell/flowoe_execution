@@ -1,212 +1,73 @@
 # FlowOE Execution
 
-# Part I: Conditional Flow Matching & Execution Policy
+**Conditional Flow Matching + Probability Flow ODE execution policy with L2-aware backtesting and an optional INT8 TensorRT/CUDA path.**
 
-<div align="center">
+This branch turns the mechanically merged upstream code into a coherent project. The original `flowTorchcfm`, `flowTorchdyn`, and `flowTorch2trt_dynamic` trees are retained as upstream provenance; the project-specific implementation lives under `src/flowoe_execution/`.
 
-[![pytorch](https://img.shields.io/badge/PyTorch_1.8+-ee4c2c?logo=pytorch&logoColor=white)](#)
-[![lightning](https://img.shields.io/badge/-Lightning_1.6+-792ee5?logo=pytorchlightning&logoColor=white)](#)
-[![hydra](https://img.shields.io/badge/Config-Hydra_1.2-89b8cd)](#)
+## Resume-bullet mapping
 
-</div>
+### Continuous Normalizing Flows / Probability Flow ODEs
 
-## Description
+`CFMPolicy` implements the simulation-free conditional flow-matching objective and samples a learned vector field through an RK4 ODE. `ProbabilityFlowODEPolicy` separately implements a conditional variance-preserving score objective and reverse-time probability-flow ODE.
 
-This module formulates a **Continuous Normalizing Flow (CNF)** execution model to minimize market impact, replacing unstable RL agents with Probability Flow ODEs to map order execution trajectories under stochastic volatility.
+### Slippage against VWAP
 
-Conditional Flow Matching (CFM) is a fast way to train continuous normalizing flow (CNF) models. CFM is a simulation-free training objective for continuous normalizing flows that allows conditional generative modeling and speeds up training and inference. 
+`ExecutionSimulator` replays generated child-order schedules against top-of-book liquidity. With trade prints, `benchmark=trade_vwap` computes a true volume-weighted trade benchmark. Without trades, it reports a clearly labeled depth-weighted book-VWAP proxy. FI-2010 is auxiliary model input, not an economic price source.
 
-<p align="center">
-<img src="assets/169_generated_samples_otcfm.png" width="600"/>
-<img src="assets/8gaussians-to-moons.gif" />
-</p>
+### INT8 TensorRT / CUDA
 
-The density, vector field, and trajectories of simulation-free CNF training schemes. The module successfully maps stochastic execution pathways across variable time horizons, bench-marked against standard VWAP/TWAP algorithms using Limit Order Book data to reduce slippage relative to the Arrival Price in high-VIX regimes.
+`FixedStepCryptoSampler` exposes a fixed-step sampler suitable for TensorRT conversion. `build_trt_engine.py` requests INT8 calibration and `benchmark_trt.py` measures FP32 vs TensorRT p50/p95/p99, speedup, and output error. A CUDA extension skeleton under `src/flowoe_execution/cuda/` provides a fused Euler update.
 
-## The Core Package
+The repository deliberately **does not hard-code the resume's `<2 ms p99` as a result**. That number becomes a defensible claim only after a real CUDA/TensorRT run records it in `results/tensorrt_latency.json`.
 
-The implementations of the relevant flow matching variants are extracted into a package. This allows abstraction of the choice of the conditional distribution `q(z)`. The module supplies the following loss functions:
+## Data
 
-- `ConditionalFlowMatcher`: $z = (x_0, x_1)$, $q(z) = q(x_0) q(x_1)$
-- `ExactOptimalTransportConditionalFlowMatcher`: $z = (x_0, x_1)$, $q(z) = \pi(x_0, x_1)$ where $\pi$ is an exact optimal transport joint.
-- `TargetConditionalFlowMatcher`: $z = x_1$, $q(z) = q(x_1)$ learns a flow from a standard normal Gaussian to data using conditional flows which optimally transport the Gaussian to the datapoint.
-- `VariancePreservingConditionalFlowMatcher`: $z = (x_0, x_1)$ $q(z) = q(x_0) q(x_1)$ but with conditional Gaussian probability paths which preserve variance over time using a trigonometric interpolation.
+`load_fi2010()` validates the commonly distributed normalized FI-2010 representation as 144 feature columns followed by five label columns. `load_l2_csv()` consumes canonical top-10 L2 snapshots:
 
-## How to run
+`timestamp, bid0..bid9, bid_size0..bid_size9, ask0..ask9, ask_size0..ask_size9`
 
-To install the dependencies:
+Use `scripts/reconstruct_binance_t_depth.py` for row-based depth updates. Supply a corresponding trade CSV with `timestamp,price,qty` for a true trade-VWAP benchmark. Large market-data files are deliberately not checked into Git.
+
+## Quickstart
 
 ```bash
-# [OPTIONAL] create conda environment
-conda create -n torchcfm python=3.10
-conda activate torchcfm
-
-# install requirements
-pip install -r requirements.txt
-
-# install package
-pip install -e .
-
+python -m pip install -e .
+python -m pytest -q
+python scripts/run_experiment.py --smoke --epochs 120
+python scripts/benchmark_latency.py --steps 16 --runs 300
 ```
 
----
-
-# Part II: Numerical Deep Learning & ODE Solving
-
-This module is dedicated to numerical deep learning: differential equations, integral transforms, and numerical methods required to execute the Euler ODE integrations natively.
-
-### Quick Start
-
-The framework provides utilities and layers to easily construct numerical deep learning models. For example, neural differential equations:
-
-```python
-from core import NeuralODE
-
-# your preferred torch.nn.Module here 
-f = nn.Sequential(nn.Conv2d(1, 32, 3),
-                  nn.Softplus(),
-                  nn.Conv2d(32, 1, 3)
-          )
-
-nde = NeuralODE(f)
-
-```
-
-And you have a trainable model. Feel free to combine classes with any PyTorch modules to build composite models. We offer additional tools to build custom neural differential equation and implicit models, including a functional API for numerical methods.
-
-By providing a centralized, easy-to-access collection of model templates, tutorial and application notebooks, we hope to speed-up research in this area and ultimately establish neural differential equations and implicit models as an effective tool for control, system identification and general machine learning tasks.
-
----
-
-# Part III: Dynamic TensorRT Quantization (INT8)
-
-To optimize inference throughput, the trajectory generation model is quantized to INT8 via TensorRT, executing the ODE integration natively in a fused CUDA kernel to achieve a strict p99 latency constraint.
-
-## Usage
-
-Here are some examples of converting a standard PyTorch module into a dynamic TensorRT engine:
-
-### Convert
-
-```python
-from torch2trt_dynamic import module2trt, BuildEngineConfig
-import torch
-from torchvision.models import resnet18
-
-# create some regular pytorch model...
-model = resnet18().cuda().eval()
-
-# create example data
-x = torch.ones((1, 3, 224, 224)).cuda()
-
-# convert to TensorRT feeding sample data as input
-config = BuildEngineConfig(
-    shape_ranges=dict(
-        x=dict(
-            min=(1, 3, 224, 224),
-            opt=(2, 3, 224, 224),
-            max=(4, 3, 224, 224),
-        )
-    ))
-trt_model = module2trt(
-    model,
-    args=[x],
-    config=config)
-
-```
-
-### Execute
-
-We can execute the returned `TRTModule` just like the original PyTorch model:
-
-```python
-x = torch.rand(1, 3, 224, 224).cuda()
-with torch.no_grad():
-    y = model(x)
-    y_trt = trt_model(x)
-
-# Check the output against PyTorch
-torch.testing.assert_close(y, y_trt)
-
-```
-
-### Save and Load
-
-We can save the model as a `state_dict`.
-
-```python
-torch.save(trt_model.state_dict(), 'my_engine.pth')
-
-```
-
-We can load the saved model into a `TRTModule`
-
-```python
-from torch2trt_dynamic import TRTModule
-
-trt_model = TRTModule()
-trt_model.load_state_dict(torch.load('my_engine.pth'))
-
-```
-
-## Setup
-
-To install without compiling plugins, call the following:
+## Real-data run
 
 ```bash
-git clone [https://github.com/yourusername/torch2trt_dynamic.git](https://github.com/yourusername/torch2trt_dynamic.git) torch2trt_dynamic
-cd torch2trt_dynamic
-pip install .
-
+python scripts/run_experiment.py \
+  --fi data/real/fi2010/Train_Dst_NoAuction_ZScore_CF_1.txt \
+  --l2 data/real/crypto/BTCUSDT_l2.csv \
+  --trades data/real/crypto/BTCUSDT_trades.csv
 ```
 
-### How to add (or override) a converter
+The split is chronological: the policy is fitted only on earlier observations and evaluated later.
 
-Here we show how to add a converter for the `ReLU` module using the TensorRT Python API.
+## GPU / TensorRT
 
-```python
-import tensorrt as trt
-from torch2trt_dynamic import tensorrt_converter
-
-@tensorrt_converter('torch.nn.ReLU.forward')
-def convert_ReLU(ctx):
-    input = ctx.method_args[1]
-    output = ctx.method_return
-    layer = ctx.network.add_activation(input=input._trt, type=trt.ActivationType.RELU)
-    output._trt = layer.get_output(0)
-
+```bash
+python -m pip install -e '.[accelerated]'
+python scripts/build_trt_engine.py
+python scripts/benchmark_trt.py --runs 500
 ```
 
-The converter takes one argument, a `ConversionContext`, which will contain the following:
+Record GPU model, driver, CUDA, TensorRT, PyTorch, batch size, ODE steps, warmup count, p50/p95/p99, and output error with every performance run.
 
-* `ctx.network` - The TensorRT network that is being constructed.
-* `ctx.method_args` - Positional arguments that were passed to the specified PyTorch function. The `_trt` attribute is set for relevant input tensors.
-* `ctx.method_kwargs` - Keyword arguments that were passed to the specified PyTorch function.
-* `ctx.method_return` - The value returned by the specified PyTorch function. The converter must set the `_trt` attribute where relevant.
+## Local validation snapshot
 
-## License
+The captured offline smoke run used 445 crypto training windows, 450 FI auxiliary windows, and 100 held-out execution episodes. At 120 epochs it measured **1.2766 bps** mean slippage for TWAP against the synthetic trade-VWAP benchmark and **1.2751 bps** for FlowOE, an observed difference of **0.0015 bps**. These are synthetic regression results, **not** FI-2010 or real-crypto results.
 
-This project is licensed under the Pirate-Emperor License. See the [LICENSE](LICENSE) file for details.
+The captured CPU PyTorch benchmark with 16 ODE steps had **3.637 ms p99**. CUDA/TensorRT were unavailable in that environment, so no GPU latency claim is made.
 
-## Author
+## Tests
 
-**Pirate-Emperor**
+The test suite covers 45-D L2 features, CFM loss/sampling, probability-flow ODE sampling, and execution replay.
 
-[![Twitter](https://skillicons.dev/icons?i=twitter)](https://twitter.com/PirateKingRahul)
-[![Discord](https://skillicons.dev/icons?i=discord)](https://discord.com/users/1200728704981143634)
-[![LinkedIn](https://skillicons.dev/icons?i=linkedin)](https://www.linkedin.com/in/piratekingrahul)
+## Upstream provenance
 
-[![Reddit](https://img.shields.io/badge/Reddit-FF5700?style=for-the-badge&logo=reddit&logoColor=white)](https://www.reddit.com/u/PirateKingRahul)
-[![Medium](https://img.shields.io/badge/Medium-42404E?style=for-the-badge&logo=medium&logoColor=white)](https://medium.com/@piratekingrahul)
-
-- GitHub: [Pirate-Emperor](https://github.com/Pirate-Emperor)
-- Reddit: [PirateKingRahul](https://www.reddit.com/u/PirateKingRahul/)
-- Twitter: [PirateKingRahul](https://twitter.com/PirateKingRahul)
-- Discord: [PirateKingRahul](https://discord.com/users/1200728704981143634)
-- LinkedIn: [PirateKingRahul](https://www.linkedin.com/in/piratekingrahul)
-- Skype: [Join Skype](https://join.skype.com/invite/yfjOJG3wv9Ki)
-- Medium: [PirateKingRahul](https://medium.com/@piratekingrahul)
-
-Thank you for visiting this project!
-
----
+The project was assembled from `atong01/conditional-flow-matching`, `DiffEqML/torchdyn`, and `grimoire/torch2trt_dynamic`. See `README_FLOWOE.md` and `THIRD_PARTY_NOTICES.md` for project-layer and provenance details.
