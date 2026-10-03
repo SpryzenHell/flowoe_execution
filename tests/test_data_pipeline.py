@@ -1,3 +1,4 @@
+# CI regression surface: exercise data-integrity gates on the reconciled branch.
 import csv
 import pandas as pd
 
