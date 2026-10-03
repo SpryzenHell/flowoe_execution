@@ -59,15 +59,12 @@ def main():
         train_y.append(torch.tensor(expert(mids[i+ctx_n:i+ctx_n+horizon], horizon), dtype=torch.float32))
 
     fi_x = torch.from_numpy(features_from_fi2010(fi.features))
-    fi_ctx, fi_y = [], []
-    for i in range(0, min(ntrain, len(fi.features)-ctx_n-horizon), stride):
+    fi_ctx = []
+    fi_labels = []
+    for i in range(0, min(ntrain, len(fi.features) - ctx_n - horizon), stride):
         fi_ctx.append(fi_x[i:i+ctx_n])
-        codes = np.asarray(fi.labels[i+ctx_n:i+ctx_n+horizon], dtype=np.float32)
-        if codes.size and codes.min() >= 1 and codes.max() <= 3:
-            codes -= 1.0
-        horizon_signal = codes.mean(0) - 1.0
-        signal = np.interp(np.linspace(0, 4, horizon), np.arange(5), horizon_signal)
-        fi_y.append(torch.tensor(make_schedule_from_trajectory(-signal * np.linspace(0, 1, horizon)), dtype=torch.float32))
+        fi_labels.append(torch.tensor(fi.labels[i+ctx_n:i+ctx_n+5], dtype=torch.long))
+
 
     model = CFMPolicy(horizon=horizon)
     opt = torch.optim.AdamW(model.parameters(), lr=2e-3, weight_decay=1e-4)
@@ -82,8 +79,9 @@ def main():
             opt.zero_grad(); loss.backward(); torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step()
         if fi_ctx:
             idx = np.random.default_rng(ep + 1000).choice(len(fi_ctx), min(32, len(fi_ctx)), replace=False)
-            c = torch.stack([fi_ctx[k] for k in idx]); y = torch.stack([fi_y[k] for k in idx])
-            loss = model.cfm_loss(c, y, 'fi2010')
+            c = torch.stack([fi_ctx[k] for k in idx])
+            y = torch.stack([fi_labels[k] for k in idx])
+            loss = model.fi_aux_loss(c, y)
             opt.zero_grad(); loss.backward(); opt.step()
     train_s = time.perf_counter() - t0
 
