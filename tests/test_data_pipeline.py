@@ -9,7 +9,7 @@ from scripts.reconstruct_binance_t_depth import _check_event_sequence
 def test_timestamp_units_cover_ms_and_microseconds():
     ms = _timestamp_series(pd.Series([1667347199939]))
     us = _timestamp_series(pd.Series([1735689600010866]))
-    assert str(ms.iloc[0]).startswith("2022-11-01 05:19:59")
+    assert str(ms.iloc[0]).startswith("2022-11-01 23:59:59")
     assert str(us.iloc[0]).startswith("2025-01-01 00:00:00")
 
 
