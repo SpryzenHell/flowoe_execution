@@ -8,7 +8,7 @@ class ContextEncoder(nn.Module):
     """Dual-source temporal encoder for FI-2010 and crypto L2."""
     def __init__(self, hidden: int = 96):
         super().__init__()
-        self.fi = nn.Sequential(nn.Linear(144, hidden), nn.SiLU(), nn.Linear(hidden, hidden))
+        self.fi = nn.Sequential(nn.Linear(144, hidden), nn.SELU(), nn.Linear(hidden, hidden))
         self.crypto = nn.Sequential(nn.Linear(45, hidden), nn.SiLU(), nn.Linear(hidden, hidden))
         self.fi_temporal = nn.Sequential(nn.Conv1d(hidden, hidden, 3, padding=1), nn.SiLU())
         self.crypto_temporal = nn.Sequential(nn.Conv1d(hidden, hidden, 3, padding=1), nn.SiLU())
