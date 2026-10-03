@@ -58,3 +58,16 @@ def test_fi2010_loader_transposes_149_by_n(tmp_path):
     data = load_fi2010(path)
     assert data.features.shape == (4, 144)
     assert data.labels.shape == (4, 5)
+
+
+def test_fixed_step_fused_path_matches_reference():
+    from flowoe_execution.model import FixedStepCryptoSampler
+
+    m = CFMPolicy(8)
+    ref = FixedStepCryptoSampler(m, steps=4)
+    fused = FixedStepCryptoSampler(m, steps=4, fused_step=lambda x, v, dt: x.add_(dt * v))
+    c = torch.randn(2, 16, 45)
+    x = torch.randn(2, 8)
+    out_ref = ref(c, x.clone())
+    out_fused = fused(c, x.clone())
+    assert torch.allclose(out_ref, out_fused, atol=1e-6, rtol=1e-5)
