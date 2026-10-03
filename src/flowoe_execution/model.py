@@ -111,16 +111,23 @@ class ProbabilityFlowODEPolicy(nn.Module):
 
 class FixedStepCryptoSampler(nn.Module):
     """Fixed-step CUDA/TensorRT-friendly execution sampler."""
-    def __init__(self, policy: CFMPolicy, steps=16):
+    def __init__(self, policy: CFMPolicy, steps=16, fused_step=None):
         super().__init__()
+        if steps < 2:
+            raise ValueError("steps must be at least 2")
         self.context = policy.context
         self.vf = policy.vf
         self.steps = steps
+        self.fused_step = fused_step
 
     def forward(self, context, x):
         ctx = self.context.crypto_encode(context)
         dt = 1.0 / float(self.steps - 1)
         for i in range(self.steps - 1):
             t = x.new_full((x.shape[0],), float(i) * dt)
-            x = x + dt * self.vf(t, x, ctx)
+            v = self.vf(t, x, ctx)
+            if self.fused_step is None:
+                x = x + dt * v
+            else:
+                self.fused_step(x, v, dt)
         return torch.softmax(x, dim=1)
