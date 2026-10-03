@@ -6,7 +6,7 @@ from flowoe_execution.data import load_fi2010, load_l2_csv, load_trades_csv
 from flowoe_execution.features import l2_features, features_from_fi2010
 from flowoe_execution.model import CFMPolicy
 from flowoe_execution.execution import ExecutionSimulator, make_schedule_from_trajectory
-from flowoe_execution.metrics import improvement_bps, bootstrap_mean_ci
+from flowoe_execution.metrics import improvement_bps, summary_stats
 
 ROOT = Path(__file__).resolve().parents[1]
 
