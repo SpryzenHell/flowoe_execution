@@ -23,6 +23,8 @@ def main():
     for _ in range(args.runs):
         t=time.perf_counter(); trt_model(context,x); torch.cuda.synchronize(); b.append((time.perf_counter()-t)*1e3)
     with torch.no_grad(): err=float((fp(context,x)-trt_model(context,x)).abs().max().item())
-    out={'pytorch_fixed_fp32':stats(a),'tensorrt_int8':stats(b),'speedup_mean':float(np.mean(a)/np.mean(b)),'max_abs_error':err,'gpu':torch.cuda.get_device_name(0)}
+    out={'pytorch_fixed_fp32':stats(a),'tensorrt_int8':stats(b),'speedup_mean':float(np.mean(a)/np.mean(b)),'max_abs_error':err,
+         'gpu':torch.cuda.get_device_name(0),'torch_version':torch.__version__,'cuda_version':torch.version.cuda,
+         'tensorrt_version':__import__('tensorrt').__version__}
     (ROOT/'results/tensorrt_latency.json').write_text(json.dumps(out,indent=2)); print(json.dumps(out,indent=2))
 if __name__=='__main__': main()
