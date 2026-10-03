@@ -86,8 +86,10 @@ class CFMPolicy(nn.Module):
         labels = labels.long()
         if labels.min() >= 1 and labels.max() <= 3:
             labels = labels - 1
+        elif labels.min() >= -1 and labels.max() <= 1:
+            labels = labels + 1
         if labels.min() < 0 or labels.max() > 2:
-            raise ValueError("FI-2010 labels must be encoded as 1/2/3 or 0/1/2")
+            raise ValueError("FI-2010 labels must be encoded as 1/2/3, 0/1/2, or -1/0/1")
         ctx = self.context(context, "fi2010")
         logits = self.fi_head(ctx).view(labels.shape[0], 5, 3)
         return torch.nn.functional.cross_entropy(logits.transpose(1, 2), labels)
