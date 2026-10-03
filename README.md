@@ -112,6 +112,23 @@ The L2 side should come from a matching Binance depth source for the same venue 
 
 The captured offline smoke run is synthetic regression evidence only. It is not FI-2010, not real crypto L2, and not a GPU benchmark. CUDA/TensorRT were unavailable in the development environment, so no `<2 ms p99` result is claimed here.
 
+## Evidence checklist
+
+Before promoting a numeric result to the resume, save the corresponding JSON artifact and verify:
+
+| Gate | Required |
+|---|---|
+| Data provenance | Source URL, instrument, dates, SHA-256 |
+| FI-2010 | NoAuction ZScore, 144 features + 5 labels |
+| Crypto L2 | Full top-10 snapshots, sequence-integrity report |
+| VWAP | Matching trade prints covering every evaluation window |
+| Split | Chronological train/evaluation cut |
+| Baseline | TWAP on the same windows and same requested quantity |
+| Execution | Full configured L2 depth, explicit side and completion |
+| Statistical report | Mean, median, p95, bootstrap 95% CI |
+| GPU | GPU/software versions, p50/p95/p99, output error |
+| Resume claim | Number copied only after the above gates pass |
+
 ## Tests
 
 The test suite covers 45-D L2 feature construction, CFM loss/sampling, probability-flow ODE sampling, full-depth execution replay, and FI-2010 matrix orientation.
