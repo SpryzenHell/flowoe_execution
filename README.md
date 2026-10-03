@@ -4,6 +4,22 @@
 
 This branch turns the mechanically merged upstream code into a coherent project. The original `flowTorchcfm`, `flowTorchdyn`, and `flowTorch2trt_dynamic` trees are retained as upstream provenance; the project-specific implementation lives under `src/flowoe_execution/`.
 
+## Visual overview
+
+The figures below are repository-native documentation assets. The smoke plot is intentionally limited to the captured synthetic regression run; it is not evidence for the resume's real-data performance numbers.
+
+![FlowOE system architecture](docs/assets/flowoe-architecture.svg)
+
+*Figure 1 — end-to-end modeling, execution replay, and acceleration architecture.*
+
+![Synthetic smoke regression results](docs/assets/synthetic-smoke-results.svg)
+
+*Figure 2 — synthetic smoke regression snapshot: 1.2766 bps TWAP vs 1.2751 bps FlowOE, with 3.637 ms CPU p99 at 16 ODE steps. These are offline regression values, not real-market claims.*
+
+![Real-data evidence gate](docs/assets/evidence-gate.svg)
+
+*Figure 3 — evidence gates required before promoting a numeric result to the resume.*
+
 ## Resume-bullet mapping
 
 ### Continuous Normalizing Flows / Probability Flow ODEs
