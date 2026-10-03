@@ -95,7 +95,9 @@ def main():
         r_twap = sim.run(l2.snapshots.iloc[i:i+horizon], np.ones(horizon)/horizon, benchmark=benchmark_name, trades=trades, strategy='twap')
         baseline.append(r_twap.slippage_bps); policy.append(r_flow.slippage_bps)
 
-    b, bci = bootstrap_mean_ci(baseline); p, pci = bootstrap_mean_ci(policy)
+    twap_stats = summary_stats(baseline)
+    flow_stats = summary_stats(policy)
+
     def file_sha256(path):
         h = hashlib.sha256()
         with open(path, 'rb') as f:
@@ -108,11 +110,13 @@ def main():
         'fi_path': str(fi_path), 'fi_sha256': file_sha256(fi_path),
         'l2_path': str(l2_path), 'l2_sha256': file_sha256(l2_path),
         'trades_path': str(trade_path) if trade_path else None,
-        'trades_sha256': file_sha256(trade_path) if trade_path else None, 'train_windows': len(train_ctx), 'fi_windows': len(fi_ctx),
+        'trades_sha256': file_sha256(trade_path) if trade_path else None,
+        'train_windows': len(train_ctx), 'fi_windows': len(fi_ctx),
         'epochs': args.epochs, 'training_seconds': train_s, 'episodes': len(policy),
-        'twap_slippage_bps_mean': b, 'twap_slippage_bps_ci95': bci,
-        'flowoe_slippage_bps_mean': p, 'flowoe_slippage_bps_ci95': pci,
-        'benchmark': benchmark_name, 'improvement_vs_twap_bps': improvement_bps(b, p),
+        'twap_slippage_bps': twap_stats,
+        'flowoe_slippage_bps': flow_stats,
+        'benchmark': benchmark_name,
+        'improvement_vs_twap_bps': improvement_bps(twap_stats['mean'], flow_stats['mean']),
         'note': 'Synthetic smoke data only; not FI-2010 or real crypto L2.' if dataset_name.startswith('synthetic') else ('User-supplied real data with trade VWAP.' if trades is not None else 'User-supplied real data with book-VWAP proxy; not the resume evidence benchmark.')
     }
     out = ROOT / 'results'; out.mkdir(exist_ok=True)
