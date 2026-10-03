@@ -78,3 +78,15 @@ def test_fi_auxiliary_loss_accepts_signed_labels():
     c = torch.randn(4, 16, 144)
     labels = torch.randint(-1, 2, (4, 5))
     assert torch.isfinite(m.fi_aux_loss(c, labels))
+
+
+def test_fi_auxiliary_updates_shared_temporal_encoder():
+    m = CFMPolicy(8)
+    c = torch.randn(4, 16, 144)
+    labels = torch.randint(0, 3, (4, 5))
+    m.zero_grad()
+    loss = m.fi_aux_loss(c, labels)
+    loss.backward()
+    grads = [p.grad for p in m.context.temporal.parameters() if p.requires_grad]
+    assert grads and all(g is not None for g in grads)
+    assert any(torch.isfinite(g).all() and g.abs().sum() > 0 for g in grads)
