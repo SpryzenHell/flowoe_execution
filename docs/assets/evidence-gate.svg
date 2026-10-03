@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="520" viewBox="0 0 1400 520">
+<defs><marker id="m" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10Z" fill="#334155"/></marker></defs>
+<rect width="1400" height="520" fill="#f8fafc"/>
+<rect x="40" y="30" width="1320" height="450" rx="24" fill="white" stroke="#cbd5e1"/>
+<text x="80" y="82" font-family="Arial" font-size="32" font-weight="700" fill="#0f172a">Real-Data Evidence Gate</text>
+<text x="80" y="112" font-family="Arial" font-size="16" fill="#64748b">A resume number is promoted only after every gate is satisfied.</text>
+<g>
+<rect x="70" y="180" width="215" height="190" rx="18" fill="#f8fafc" stroke="#cbd5e1"/>
+<circle cx="105" cy="215" r="19" fill="#0f172a"/><text x="105" y="222" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700" fill="white">1</text>
+<text x="140" y="220" font-family="Arial" font-size="18" font-weight="700" fill="#0f172a">Data provenance</text>
+<text x="92" y="272" font-family="Arial" font-size="15" fill="#475569">Source, dates, instrument, SHA-256</text>
+</g><g>
+<rect x="315" y="180" width="215" height="190" rx="18" fill="#f8fafc" stroke="#cbd5e1"/>
+<circle cx="350" cy="215" r="19" fill="#0f172a"/><text x="350" y="222" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700" fill="white">2</text>
+<text x="385" y="220" font-family="Arial" font-size="18" font-weight="700" fill="#0f172a">Data quality</text>
+<text x="337" y="272" font-family="Arial" font-size="15" fill="#475569">FI 144+5, full L2, valid trades, no gaps</text>
+</g><g>
+<rect x="560" y="180" width="215" height="190" rx="18" fill="#f8fafc" stroke="#cbd5e1"/>
+<circle cx="595" cy="215" r="19" fill="#0f172a"/><text x="595" y="222" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700" fill="white">3</text>
+<text x="630" y="220" font-family="Arial" font-size="18" font-weight="700" fill="#0f172a">Chronological split</text>
+<text x="582" y="272" font-family="Arial" font-size="15" fill="#475569">Train only on past observations</text>
+</g><g>
+<rect x="805" y="180" width="215" height="190" rx="18" fill="#f8fafc" stroke="#cbd5e1"/>
+<circle cx="840" cy="215" r="19" fill="#0f172a"/><text x="840" y="222" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700" fill="white">4</text>
+<text x="875" y="220" font-family="Arial" font-size="18" font-weight="700" fill="#0f172a">Economic benchmark</text>
+<text x="827" y="272" font-family="Arial" font-size="15" fill="#475569">Same-window trade VWAP + TWAP</text>
+</g><g>
+<rect x="1050" y="180" width="215" height="190" rx="18" fill="#f8fafc" stroke="#cbd5e1"/>
+<circle cx="1085" cy="215" r="19" fill="#0f172a"/><text x="1085" y="222" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700" fill="white">5</text>
+<text x="1120" y="220" font-family="Arial" font-size="18" font-weight="700" fill="#0f172a">Hardware evidence</text>
+<text x="1072" y="272" font-family="Arial" font-size="15" fill="#475569">Real CUDA/TensorRT p50/p95/p99 + error</text>
+</g>
+<line x1="285" y1="275" x2="309" y2="275" stroke="#334155" stroke-width="4" marker-end="url(#m)"/><line x1="530" y1="275" x2="554" y2="275" stroke="#334155" stroke-width="4" marker-end="url(#m)"/><line x1="775" y1="275" x2="799" y2="275" stroke="#334155" stroke-width="4" marker-end="url(#m)"/><line x1="1020" y1="275" x2="1044" y2="275" stroke="#334155" stroke-width="4" marker-end="url(#m)"/>
+<rect x="270" y="395" width="860" height="46" rx="23" fill="#e2e8f0"/>
+<text x="700" y="425" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700" fill="#0f172a">Only then: save the JSON artifact and promote the number to the resume.</text>
+</svg>
