@@ -18,9 +18,9 @@ class ContextEncoder(nn.Module):
 
     def forward(self, x, source):
         if source == "fi2010":
-            return self._encode(x, self.fi, self.fi_temporal)
+            return self._encode(x, self.fi)
         if source == "crypto":
-            return self._encode(x, self.crypto, self.crypto_temporal)
+            return self._encode(x, self.crypto)
         raise ValueError(f"unknown source: {source}")
 
     def crypto_encode(self, x):
@@ -47,6 +47,24 @@ class CFMPolicy(nn.Module):
         self.horizon = horizon
         self.context = ContextEncoder(context_hidden)
         self.vf = VectorField(horizon, context_hidden, hidden)
+        self.fi_head = nn.Sequential(
+            nn.Linear(context_hidden, hidden),
+            nn.SELU(),
+            nn.Linear(hidden, 15),
+        )
+
+    def fi_aux_loss(self, context, labels):
+        """Auxiliary FI-2010 movement classification over five horizons."""
+        if labels.ndim != 2 or labels.shape[1] != 5:
+            raise ValueError(f"expected labels shaped (N, 5), got {tuple(labels.shape)}")
+        labels = labels.long()
+        if labels.min() >= 1 and labels.max() <= 3:
+            labels = labels - 1
+        if labels.min() < 0 or labels.max() > 2:
+            raise ValueError("FI-2010 labels must be encoded as 1/2/3 or 0/1/2")
+        ctx = self.context(context, "fi2010")
+        logits = self.fi_head(ctx).view(labels.shape[0], 5, 3)
+        return torch.nn.functional.cross_entropy(logits.transpose(1, 2), labels)
 
     def cfm_loss(self, context, target, source, sigma=0.05):
         ctx = self.context(context, source)
