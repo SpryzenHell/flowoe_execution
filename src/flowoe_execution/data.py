@@ -31,6 +31,21 @@ def load_fi2010(path: str | Path, max_rows: int | None = None) -> FI2010Data:
         labels=arr[:, 144:149].astype(np.int16, copy=False),
     )
 
+def _timestamp_series(values):
+    numeric = pd.to_numeric(values, errors="coerce")
+    if numeric.notna().all():
+        magnitude = float(numeric.abs().median())
+        if magnitude >= 1e17:
+            unit = "ns"
+        elif magnitude >= 1e14:
+            unit = "us"
+        elif magnitude >= 1e11:
+            unit = "ms"
+        else:
+            unit = "s"
+        return pd.to_datetime(numeric, unit=unit, utc=True, errors="coerce")
+    return pd.to_datetime(values, utc=True, errors="coerce", format="mixed")
+
 def _book(df: pd.DataFrame, levels: int = 10) -> pd.DataFrame:
     df = df.copy()
     if "timestamp" not in df.columns:
@@ -54,10 +69,7 @@ def _book(df: pd.DataFrame, levels: int = 10) -> pd.DataFrame:
         for c in (f"bid{i}", f"bid_size{i}", f"ask{i}", f"ask_size{i}")
     ]
     out = df[cols].copy()
-    if np.issubdtype(out.timestamp.dtype, np.number):
-        out["timestamp"] = pd.to_datetime(out.timestamp, unit="s", errors="coerce")
-    else:
-        out["timestamp"] = pd.to_datetime(out.timestamp, utc=True, errors="coerce", format="mixed")
+    out["timestamp"] = _timestamp_series(out["timestamp"])
     return out.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
 
 def load_l2_csv(path: str | Path, levels: int = 10, max_rows: int | None = None) -> L2Data:
@@ -92,11 +104,7 @@ def load_trades_csv(path: str | Path) -> pd.DataFrame:
     if "price" not in df.columns or qty is None:
         raise ValueError("trade file must contain price and qty/quantity")
 
-    if np.issubdtype(df.timestamp.dtype, np.number):
-        unit = "ms" if float(df.timestamp.iloc[0]) > 1e11 else "s"
-        df["timestamp"] = pd.to_datetime(df.timestamp, unit=unit, errors="coerce")
-    else:
-        df["timestamp"] = pd.to_datetime(df.timestamp, utc=True, errors="coerce", format="mixed")
+    df["timestamp"] = _timestamp_series(df["timestamp"])
     return (
         df.dropna(subset=["timestamp", "price", qty])
         .rename(columns={qty: "qty"})[["timestamp", "price", "qty"]]
