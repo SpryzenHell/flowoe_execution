@@ -131,7 +131,7 @@ Before promoting a numeric result to the resume, save the corresponding JSON art
 
 ## Tests
 
-The test suite covers 45-D L2 feature construction, CFM loss/sampling, probability-flow ODE sampling, full-depth execution replay, and FI-2010 matrix orientation.
+The test suite covers 45-D L2 feature construction, CFM loss/sampling, probability-flow ODE sampling, full-depth execution replay, FI-2010 matrix orientation, Binance timestamp units, sequence-gap detection, and the fused-step reference path.
 
 ## Upstream provenance
 
