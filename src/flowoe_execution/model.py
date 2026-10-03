@@ -120,7 +120,7 @@ class FixedStepCryptoSampler(nn.Module):
     def forward(self, context, x):
         ctx = self.context.crypto_encode(context)
         dt = 1.0 / float(self.steps - 1)
-        for i in range(self.steps):
+        for i in range(self.steps - 1):
             t = x.new_full((x.shape[0],), float(i) * dt)
             x = x + dt * self.vf(t, x, ctx)
         return torch.softmax(x, dim=1)
