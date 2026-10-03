@@ -3,7 +3,7 @@ import csv
 import pandas as pd
 
 from flowoe_execution.data import _timestamp_series
-from scripts.reconstruct_binance_t_depth import _check_event_sequence
+from scripts.reconstruct_binance_t_depth import _check_event_sequence, _timestamp_seconds
 
 
 def test_timestamp_units_cover_ms_and_microseconds():
@@ -27,3 +27,8 @@ def test_binance_sequence_gap_is_detected():
     }
     assert not _check_event_sequence(contiguous, previous_last)
     assert _check_event_sequence(gap, previous_last)
+
+
+def test_depth_timestamp_units_cover_ms_and_microseconds():
+    assert abs(_timestamp_seconds(1667347199939) - 1667347199.939) < 1e-6
+    assert abs(_timestamp_seconds(1735689600010866) - 1735689600.010866) < 1e-6
