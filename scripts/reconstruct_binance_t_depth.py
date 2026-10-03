@@ -6,6 +6,20 @@ from collections import defaultdict
 from pathlib import Path
 
 LEVELS = 10
+
+
+def _timestamp_seconds(raw):
+    value = float(raw)
+    magnitude = abs(value)
+    if magnitude >= 1e17:
+        return value / 1e9
+    if magnitude >= 1e14:
+        return value / 1e6
+    if magnitude >= 1e11:
+        return value / 1e3
+    return value
+
+
 KEY_COLUMNS = {"symbol", "timestamp", "first_update_id", "last_update_id", "side", "update_type", "price", "qty"}
 
 def rows(path):
@@ -104,6 +118,7 @@ def main():
             snapshots_applied += 1
 
         next_emit = None
+        interval_s = args.interval_ms / 1000.0
         for row in rows(args.updates):
             update_rows += 1
             key = _event_key(row)
@@ -121,16 +136,16 @@ def main():
                 previous_event = key
 
             raw = row.get("timestamp") or row.get("time") or row.get("ts")
-            ts_ms = int(float(raw))
+            ts_s = _timestamp_seconds(raw)
             apply(book, row)
             if next_emit is None:
-                next_emit = ts_ms
-            if ts_ms >= next_emit:
-                if emit(writer, ts_ms / 1000.0, book):
+                next_emit = ts_s
+            if ts_s >= next_emit:
+                if emit(writer, ts_s, book):
                     emitted += 1
                 else:
                     skipped_incomplete += 1
-                next_emit = ts_ms + args.interval_ms
+                next_emit = ts_s + interval_s
 
     report = {
         "snapshot_rows_applied": snapshots_applied,
