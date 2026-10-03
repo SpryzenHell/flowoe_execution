@@ -38,7 +38,7 @@ The production benchmark expects reconstructed top-10 L2 snapshots:
 
 `timestamp, bid0..bid9, bid_size0..bid_size9, ask0..ask9, ask_size0..ask_size9`
 
-Use `scripts/reconstruct_binance_t_depth.py` for row-based Binance T_DEPTH updates. The script validates event IDs and can fail closed on detected sequence gaps.
+Use `scripts/reconstruct_binance_t_depth.py` for row-based Binance T_DEPTH updates. The script normalizes millisecond/microsecond-style event timestamps, validates event IDs, and can fail closed on detected sequence gaps.
 
 For an economic VWAP benchmark, provide matching trade prints. `scripts/download_binance_trades.py` can fetch daily Spot or USD-M Futures trade archives and normalize them to `timestamp,price,qty,trade_id`.
 
