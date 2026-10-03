@@ -71,3 +71,10 @@ def test_fixed_step_fused_path_matches_reference():
     out_ref = ref(c, x.clone())
     out_fused = fused(c, x.clone())
     assert torch.allclose(out_ref, out_fused, atol=1e-6, rtol=1e-5)
+
+
+def test_fi_auxiliary_loss_accepts_signed_labels():
+    m = CFMPolicy(8)
+    c = torch.randn(4, 16, 144)
+    labels = torch.randint(-1, 2, (4, 5))
+    assert torch.isfinite(m.fi_aux_loss(c, labels))
