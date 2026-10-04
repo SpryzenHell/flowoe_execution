@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
+<rect width="1200" height="700" fill="#f7f7f5"/>
+<rect x="45" y="40" width="1110" height="610" rx="10" fill="white" stroke="#c9c9c4"/>
+<text x="80" y="88" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#202124">Repository layout</text>
+<text x="80" y="116" font-family="Arial,sans-serif" font-size="15" fill="#5f6368">Project-specific code is separated from the retained upstream source trees.</text>
+<text x="90" y="166" font-family="monospace" font-size="16" fill="#202124">flowoe_execution/</text>
+<g font-family="monospace" font-size="15" fill="#303134">
+<text x="90" y="204">├── src/flowoe_execution/</text>
+<text x="120" y="232">├── data.py</text>
+<text x="120" y="258">├── features.py</text>
+<text x="120" y="284">├── model.py</text>
+<text x="120" y="310">├── execution.py</text>
+<text x="120" y="336">├── metrics.py</text>
+<text x="120" y="362">└── cuda/</text>
+<text x="90" y="404">├── scripts/</text>
+<text x="120" y="430">├── run_experiment.py</text>
+<text x="120" y="456">├── validate_real_data.py</text>
+<text x="120" y="482">├── reconstruct_binance_t_depth.py</text>
+<text x="120" y="508">├── build_trt_engine.py</text>
+<text x="120" y="534">└── benchmark_*.py</text>
+<text x="90" y="576">├── tests/</text>
+<text x="90" y="602">├── docs/assets/</text>
+<text x="90" y="628">└── README.md / pyproject.toml / Dockerfile</text>
+</g>
+</svg>
