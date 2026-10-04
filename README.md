@@ -1,77 +1,256 @@
 # FlowOE Execution
 
-**Conditional Flow Matching + Probability Flow ODE execution policy with L2-aware backtesting and an optional INT8 TensorRT/CUDA path.**
+![FlowOE Execution](main.png)
 
-This branch turns the mechanically merged upstream code into a coherent project. The original `flowTorchcfm`, `flowTorchdyn`, and `flowTorch2trt_dynamic` trees are retained as upstream provenance; the project-specific implementation lives under `src/flowoe_execution/`.
+Conditional Flow Matching and Probability Flow ODE models for simulated order execution, with L2 replay and optional TensorRT/CUDA acceleration.
 
-## Visual overview
+## Overview
 
-The figures below are repository-native documentation assets. The smoke plot is intentionally limited to the captured synthetic regression run; it is not evidence for the resume's real-data performance numbers.
+FlowOE takes a short history of limit-order-book observations and produces an execution schedule over a fixed horizon. The schedule is replayed against a ten-level book so that available liquidity, completion, and execution price are measured explicitly.
 
-![FlowOE system architecture](docs/assets/flowoe-architecture.svg)
+The repository contains two model paths:
 
-*Figure 1 — end-to-end modeling, execution replay, and acceleration architecture.*
+- Conditional Flow Matching (CFM) with RK4 sampling.
+- A conditional variance-preserving score model with a reverse probability-flow ODE.
 
-![Synthetic smoke regression results](docs/assets/synthetic-smoke-results.svg)
+FI-2010 is used as an auxiliary microstructure task. Crypto L2 is the execution input. The execution layer compares the generated schedule with TWAP and, when matching trade prints are available, uses trade VWAP as the benchmark.
 
-*Figure 2 — synthetic smoke regression snapshot: 1.2766 bps TWAP vs 1.2751 bps FlowOE, with 3.637 ms CPU p99 at 16 ODE steps. These are offline regression values, not real-market claims.*
+The project-specific implementation is under `src/flowoe_execution/`. The original upstream source trees are kept in the repository for provenance and reference.
 
-![Real-data evidence gate](docs/assets/evidence-gate.svg)
+## Project layout
 
-*Figure 3 — evidence gates required before promoting a numeric result to the resume.*
+![Repository structure](docs/assets/repo-structure.svg)
 
-## Resume-bullet mapping
+The important paths are:
 
-### Continuous Normalizing Flows / Probability Flow ODEs
+```text
+src/flowoe_execution/
+├── data.py        FI-2010, L2 and trade loading
+├── features.py    45-D L2 feature construction
+├── model.py       CFM, probability-flow ODE and fixed-step sampler
+├── execution.py   full-depth replay and VWAP calculations
+├── metrics.py     confidence intervals and summary statistics
+└── cuda/          fused Euler update
 
-`CFMPolicy` implements the simulation-free conditional flow-matching objective and samples a learned vector field through an RK4 ODE. `ProbabilityFlowODEPolicy` separately implements a conditional variance-preserving score objective and reverse-time probability-flow ODE. The FI-2010 side is used as a genuine auxiliary five-horizon movement-classification task through a shared temporal encoder; the Crypto L2 side then trains the execution vector field on the same shared temporal representation.
+scripts/
+├── run_experiment.py
+├── validate_real_data.py
+├── reconstruct_binance_t_depth.py
+├── download_fi2010.py
+├── download_binance_trades.py
+├── build_trt_engine.py
+├── benchmark_latency.py
+├── benchmark_trt.py
+└── benchmark_cuda_fused.py
 
-### Slippage against VWAP
+tests/
+docs/
+```
 
-`ExecutionSimulator` replays generated child-order schedules against the configured **full top-10 L2 depth**, consuming liquidity level-by-level rather than treating the best quote as infinite. With trade prints, `benchmark=trade_vwap` computes the economic trade-VWAP benchmark. Without trades, `book_vwap` is an explicit depth-weighted proxy.
+## Requirements
 
-For a real-data evidence run, `scripts/validate_real_data.py` requires a trade stream overlapping the L2 evaluation window, and `run_experiment.py` refuses to silently downgrade a real run to the proxy.
+For the normal CPU workflow:
 
-### INT8 TensorRT / CUDA
+- Python 3.10 or newer
+- pip
+- Git
 
-`FixedStepCryptoSampler` exposes a fixed-step sampler suitable for TensorRT conversion. `build_trt_engine.py` requests INT8 calibration and `benchmark_trt.py` measures FP32 vs TensorRT p50/p95/p99, speedup, and output error. The accelerator extra installs the upstream `grimoire/torch2trt_dynamic` source directly because that project is distributed as a Git repository rather than a normal PyPI dependency. A CUDA extension provides a fused Euler update.
+Python 3.11 is used by the GitHub Actions workflow.
 
-The repository deliberately **does not hard-code the resume's `<2 ms p99` as a result**. That number becomes a defensible claim only after a real CUDA/TensorRT run records it in `results/tensorrt_latency.json`.
+CUDA, TensorRT and a CUDA compiler are optional. They are required only for the acceleration path.
 
-## Data
+No API key is needed for the smoke test.
 
-### FI-2010
+## Installation
 
-The recommended training file is:
-
-`Train_Dst_NoAuction_ZScore_CF_7.txt`
-
-The standard FI-2010 protocol uses the cumulative first-7-days CF_7 training prefix and held-out CF_7/8/9 test-day files. This project uses FI-2010 as auxiliary microstructure conditioning/augmentation; the normalized feature values are never treated as execution prices.
-
-### Crypto L2
-
-The production benchmark expects reconstructed top-10 L2 snapshots:
-
-`timestamp, bid0..bid9, bid_size0..bid_size9, ask0..ask9, ask_size0..ask_size9`
-
-Use `scripts/reconstruct_binance_t_depth.py` for row-based Binance T_DEPTH updates. The script normalizes millisecond/microsecond-style event timestamps, validates event IDs, and can fail closed on detected sequence gaps.
-
-For an economic VWAP benchmark, provide matching trade prints. `scripts/download_binance_trades.py` can fetch daily Spot or USD-M Futures trade archives and normalize them to `timestamp,price,qty,trade_id`.
-
-Large market-data files are deliberately not checked into Git.
-
-## Quickstart
+### Linux / macOS
 
 ```bash
+git clone https://github.com/SpryzenHell/flowoe_execution.git
+cd flowoe_execution
+
+python -m venv .venv
+source .venv/bin/activate
+
+python -m pip install --upgrade pip
 python -m pip install -e '.[test]'
+```
+
+### Windows PowerShell
+
+```powershell
+git clone https://github.com/SpryzenHell/flowoe_execution.git
+cd flowoe_execution
+
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+
+python -m pip install --upgrade pip
+python -m pip install -e '.[test]'
+```
+
+The package is installed in editable mode. Changes under `src/` are therefore picked up without reinstalling the project.
+
+## Verify the installation
+
+Run the tests:
+
+```bash
 python -m pytest -q
-python scripts/run_experiment.py --smoke --epochs 120
+```
+
+The repository CI runs this command.
+
+The current code-affecting CI run completed successfully with all tests passing.
+
+![CI verification output](docs/assets/ci-verification.svg)
+
+The figure above is a repository documentation snapshot of the actual CI command sequence and the corresponding smoke-run values. It is not a mock application screen.
+
+## Run the project
+
+### 1. Smoke experiment
+
+The smoke experiment is self-contained and uses generated synthetic data.
+
+```bash
+python scripts/run_experiment.py --smoke --epochs 12
+```
+
+It performs the following steps:
+
+1. Generates a synthetic ten-level order book, trade stream, and FI-shaped auxiliary matrix.
+2. Builds 45-D L2 features.
+3. Trains the CFM execution policy.
+4. Trains the FI auxiliary movement classifier through the shared temporal encoder.
+5. Generates execution trajectories using the learned vector field.
+6. Converts trajectories to order schedules.
+7. Replays schedules against the ten-level book.
+8. Compares FlowOE with TWAP using the same execution windows.
+9. Writes the trained model and JSON report to `results/`.
+
+The smoke run is deterministic with fixed random seeds.
+
+### 2. Latency smoke check
+
+```bash
 python scripts/benchmark_latency.py --steps 16 --runs 300
 ```
 
-## Real-data evidence run
+This measures the current environment only. A CPU measurement is not a TensorRT or GPU result.
 
-First validate the data:
+### 3. Docker
+
+A CPU smoke environment is included:
+
+```bash
+docker build -t flowoe-execution .
+docker run --rm flowoe-execution
+```
+
+The default container command runs the same 12-epoch smoke experiment used in CI.
+
+The detailed clean-checkout instructions are also available in [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
+
+## Smoke-run results
+
+The current CI smoke run used:
+
+- Python 3.11.16
+- PyTorch 2.14.1
+- context length: 32
+- execution horizon: 8
+- 24 sampling steps
+- chronological training ratio: 60%
+- 445 crypto training windows
+- 446 FI auxiliary windows
+- 100 evaluation episodes
+
+The measured synthetic result was:
+
+| Metric | TWAP | FlowOE |
+|---|---:|---:|
+| Mean slippage (bps) | 1.27657 | 1.24115 |
+| Median slippage (bps) | 1.18479 | 1.14619 |
+| p95 slippage (bps) | 2.87290 | 2.96368 |
+| Mean completion | 1.0000 | 1.0000 |
+
+Bootstrap 95% confidence intervals for the mean slippage were:
+
+| Method | 95% CI (bps) |
+|---|---:|
+| TWAP | 1.10875 – 1.45308 |
+| FlowOE | 1.06910 – 1.41778 |
+
+The observed mean difference in this smoke run was **0.03541 bps** in favour of FlowOE.
+
+![Synthetic smoke results](docs/assets/synthetic-smoke-results.svg)
+
+These numbers come from the repository's synthetic regression run. They are not a claim about real market performance.
+
+## Execution model
+
+The execution layer does not treat the best quote as having unlimited liquidity.
+
+For each child order, the simulator walks the configured depth one level at a time and consumes the displayed quantity available at each price until the requested quantity is filled or the configured depth is exhausted.
+
+The returned execution record contains:
+
+- requested quantity
+- executed quantity
+- average execution price
+- benchmark VWAP
+- slippage in basis points
+- completion
+- number of book levels consumed
+
+For a buy order:
+
+```text
+slippage_bps = (execution_price - benchmark_vwap) / benchmark_vwap * 10,000
+```
+
+For a sell order the sign is reversed.
+
+## L2 feature representation
+
+The current feature vector has 45 values:
+
+- ten bid-price deviations
+- ten ask-price deviations
+- ten log bid sizes
+- ten log ask sizes
+- relative spread
+- microprice deviation
+- order-book imbalance
+- rolling volatility
+- order-flow-imbalance feature
+
+The feature builder validates the expected dimensions and finite values.
+
+## FI-2010 auxiliary task
+
+The FI-2010 input loader expects 144 feature columns followed by five prediction labels.
+
+The auxiliary head predicts a three-class direction for each of the five horizons. The repository accepts the common label encodings:
+
+- `1, 2, 3`
+- `0, 1, 2`
+- `-1, 0, 1`
+
+FI-2010 is not used as an execution-price series. It is an auxiliary microstructure signal used to train the shared temporal encoder.
+
+## Real-data workflow
+
+A real-data run needs three inputs:
+
+1. FI-2010 NoAuction ZScore data.
+2. Reconstructed top-10 L2 snapshots for the chosen instrument and period.
+3. Trade prints from the same venue and evaluation period.
+
+The repository deliberately does not silently replace trade VWAP with a book proxy during a real evidence run.
+
+### Data validation
 
 ```bash
 python scripts/validate_real_data.py \
@@ -80,7 +259,19 @@ python scripts/validate_real_data.py \
   --trades data/real/crypto/BTCUSDT_trades.csv
 ```
 
-Then run the chronological experiment:
+The validator checks:
+
+- FI dimensions and finite values
+- FI label encoding
+- non-empty L2 data
+- valid top-of-book ordering
+- non-negative book sizes
+- positive trade prices and quantities
+- overlap between trades and the L2 evaluation period
+
+The report is saved as `results/data_quality.json`.
+
+### Run the real experiment
 
 ```bash
 python scripts/run_experiment.py \
@@ -90,71 +281,200 @@ python scripts/run_experiment.py \
   --epochs 120
 ```
 
-The policy is fitted only on the earlier observations and evaluated on later observations. The experiment writes input SHA-256 hashes into the result JSON so a reported bps number can be traced to exact files.
-
-## GPU / TensorRT
+Additional execution settings are available:
 
 ```bash
-python -m pip install -e '.[accelerated]'
-python scripts/build_trt_engine.py
-python scripts/benchmark_trt.py --runs 500
-python scripts/benchmark_cuda_fused.py --steps 16 --runs 300
+python scripts/run_experiment.py --help
 ```
 
-Record GPU model, CUDA, TensorRT, PyTorch, batch size, ODE steps, warmup count, p50/p95/p99, speedup, and output error with every performance run. The fused CUDA benchmark writes results/cuda_fused_latency.json; the TensorRT benchmark writes results/tensorrt_latency.json.
+The result is written to `results/real_experiment.json`.
 
-## Data acquisition
+Each real-data report records SHA-256 hashes for the input files so that a reported result can be tied to the exact data used.
 
-FI-2010:
+### Binance depth reconstruction
+
+For Binance T_DEPTH-style data:
 
 ```bash
-python scripts/download_fi2010.py --source kaggle
-# or follow the manual Fairdata/ETSIN path printed by:
-python scripts/download_fi2010.py --source manual
+python scripts/reconstruct_binance_t_depth.py \
+  --snapshot path/to/BTCUSDT_T_DEPTH_2022-11-01_depth_snap.csv \
+  --updates path/to/BTCUSDT_T_DEPTH_2022-11-01_depth_update.csv \
+  --out data/real/crypto/BTCUSDT_l2.csv \
+  --interval-ms 100 \
+  --quality-report results/depth_quality.json \
+  --fail-on-gap
 ```
 
-Binance trades:
+The reconstruction code:
+
+- applies set and delta updates;
+- maintains the working book;
+- emits the best ten levels;
+- normalizes second/millisecond/microsecond/nanosecond timestamps;
+- checks update sequence IDs;
+- can stop on a detected sequence gap.
+
+For an initial test, use a bounded prefix of a large depth file. For evidence-quality results, use a complete continuous window.
+
+### Binance trades
+
+Trade archives can be normalized with:
 
 ```bash
 python scripts/download_binance_trades.py \
   --market um \
   --symbol BTCUSDT \
   --start 2025-01-01 \
-  --end 2025-01-02
+  --end 2025-01-02 \
+  --out data/real/crypto/BTCUSDT_trades.csv
 ```
 
-The L2 side should come from a matching Binance depth source for the same venue and time window. The reconstruction report exposes sequence gaps; do not call a run evidence-quality if the raw depth stream is incomplete.
+The normalized schema is:
 
-## Local validation snapshot
+```text
+timestamp,price,qty,trade_id
+```
 
-The captured offline smoke run is synthetic regression evidence only. It is not FI-2010, not real crypto L2, and not a GPU benchmark. CUDA/TensorRT were unavailable in the development environment, so no `<2 ms p99` result is claimed here.
+The trade stream must cover the same evaluation window as the L2 data.
 
-## Evidence checklist
+The full real-data procedure is documented in [docs/REAL_DATA_RUN.md](docs/REAL_DATA_RUN.md).
 
-Before promoting a numeric result to the resume, save the corresponding JSON artifact and verify:
+## TensorRT and CUDA
 
-| Gate | Required |
-|---|---|
-| Data provenance | Source URL, instrument, dates, SHA-256 |
-| FI-2010 | NoAuction ZScore, 144 features + 5 labels |
-| Crypto L2 | Full top-10 snapshots, sequence-integrity report |
-| VWAP | Matching trade prints covering every evaluation window |
-| Split | Chronological train/evaluation cut |
-| Baseline | TWAP on the same windows and same requested quantity |
-| Execution | Full configured L2 depth, explicit side and completion |
-| Statistical report | Mean, median, p95, bootstrap 95% CI |
-| GPU | GPU/software versions, p50/p95/p99, output error |
-| Resume claim | Number copied only after the above gates pass |
+The acceleration path uses a fixed-step sampler so the execution loop can be converted without a dynamic ODE solver.
 
-## Tests
+### Install the optional dependencies
 
-The test suite covers 45-D L2 feature construction, CFM loss/sampling, probability-flow ODE sampling, full-depth execution replay, FI-2010 matrix orientation, Binance timestamp units, sequence-gap detection, and the fused-step reference path.
+On a CUDA-capable machine:
+
+```bash
+python -m pip install -e '.[accelerated]'
+```
+
+The accelerated extra pins `torch2trt_dynamic` to a specific upstream commit.
+
+### Build the TensorRT engine
+
+```bash
+python scripts/build_trt_engine.py
+```
+
+### Benchmark TensorRT
+
+```bash
+python scripts/benchmark_trt.py --runs 500
+```
+
+The benchmark reports p50, p95 and p99 latency, mean speedup, output error, GPU model, PyTorch version, CUDA version and TensorRT version.
+
+### Build and benchmark the fused CUDA step
+
+```bash
+python scripts/build_cuda_extension.py
+python scripts/benchmark_cuda_fused.py --steps 16 --runs 300
+```
+
+The fused benchmark compares the CUDA Euler update with the PyTorch reference and writes:
+
+```text
+results/cuda_fused_latency.json
+```
+
+The TensorRT benchmark writes:
+
+```text
+results/tensorrt_latency.json
+```
+
+## Current reproducibility status
+
+![Evidence gate](docs/assets/evidence-gate.svg)
+
+The repository has a working CPU path, automated tests, a deterministic smoke experiment, L2 reconstruction, real-data validation, and optional CUDA/TensorRT tooling.
+
+The following two numbers are **not** hard-coded as results:
+
+- 2.4 bps improvement against VWAP
+- <2 ms p99 TensorRT latency
+
+Those values require a real-data run and a real CUDA/TensorRT benchmark respectively. The necessary commands and report formats are in the repository, but the required external data and GPU hardware are not included in the source tree.
+
+## Data sources
+
+### FI-2010
+
+Official metadata:
+
+https://etsin.fairdata.fi/dataset/73eb48d7-4dbc-4a10-a52a-da745b47a649
+
+The standard NoAuction ZScore files used by this project are named:
+
+```text
+Train_Dst_NoAuction_ZScore_CF_7.txt
+Test_Dst_NoAuction_ZScore_CF_7.txt
+Test_Dst_NoAuction_ZScore_CF_8.txt
+Test_Dst_NoAuction_ZScore_CF_9.txt
+```
+
+### Binance
+
+Public market-data portal:
+
+https://data.binance.vision/
+
+The repository's trade downloader uses the public daily trade archive layout. L2 depth files are supplied separately and reconstructed with the included script.
+
+More details are in [DATA_SOURCES.md](DATA_SOURCES.md).
+
+## Research protocol
+
+The intended evaluation procedure is:
+
+1. Choose the instrument and evaluation dates.
+2. Build or obtain continuous ten-level L2 snapshots.
+3. Obtain matching trade prints.
+4. Validate the data.
+5. Split the observations chronologically.
+6. Fit the model using only the earlier portion.
+7. Generate schedules for later windows without future price information.
+8. Replay the schedules against the full configured L2 depth.
+9. Compute trade VWAP over the same execution windows.
+10. Compare against TWAP using identical quantities and windows.
+11. Save the result JSON and input hashes.
+12. Record the hardware and software environment for performance tests.
+
+![FlowOE system architecture](docs/assets/flowoe-architecture.svg)
+
+## Notes on generated files
+
+The following locations are generated during experiments and are ignored by Git:
+
+```text
+data/smoke/
+data/real/
+results/
+.cache/
+```
+
+This keeps market data, model checkpoints and local benchmark outputs out of the repository.
 
 ## Upstream provenance
 
-The project was assembled from:
-- `atong01/conditional-flow-matching`
-- `DiffEqML/torchdyn`
-- `grimoire/torch2trt_dynamic`
+The project retains source trees from:
 
-See `README_FLOWOE.md` and `THIRD_PARTY_NOTICES.md` for project-layer and provenance details.
+- https://github.com/atong01/conditional-flow-matching
+- https://github.com/DiffEqML/torchdyn
+- https://github.com/grimoire/torch2trt_dynamic
+
+The project-specific code is separate from those trees and is distributed under the repository's project and third-party notices.
+
+## Further documentation
+
+- [Getting started](docs/GETTING_STARTED.md)
+- [Real-data run](docs/REAL_DATA_RUN.md)
+- [Data sources](DATA_SOURCES.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+
+## License
+
+See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
