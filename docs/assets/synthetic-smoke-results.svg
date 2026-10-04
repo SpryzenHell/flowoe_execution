@@ -1,28 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="700" viewBox="0 0 1100 700">
-<rect width="1100" height="700" fill="#f8fafc"/>
-<rect x="40" y="30" width="1020" height="640" rx="24" fill="white" stroke="#cbd5e1"/>
-<text x="80" y="85" font-family="Arial" font-size="34" font-weight="700" fill="#0f172a">Synthetic Smoke Regression Snapshot</text>
-<text x="80" y="119" font-family="Arial" font-size="17" fill="#64748b">Captured offline regression only — not FI-2010, not real crypto L2, not GPU/TensorRT evidence.</text>
-<line x1="100" y1="560" x2="700" y2="560" stroke="#64748b" stroke-width="2"/>
-<line x1="100" y1="190" x2="100" y2="560" stroke="#64748b" stroke-width="2"/>
-<line x1="100" y1="560" x2="700" y2="560" stroke="#e2e8f0"/><text x="85" y="566" text-anchor="end" font-family="Arial" font-size="14" fill="#64748b">0.0</text><line x1="100" y1="445" x2="700" y2="445" stroke="#e2e8f0"/><text x="85" y="451" text-anchor="end" font-family="Arial" font-size="14" fill="#64748b">0.5</text><line x1="100" y1="330" x2="700" y2="330" stroke="#e2e8f0"/><text x="85" y="336" text-anchor="end" font-family="Arial" font-size="14" fill="#64748b">1.0</text><line x1="100" y1="215" x2="700" y2="215" stroke="#e2e8f0"/><text x="85" y="221" text-anchor="end" font-family="Arial" font-size="14" fill="#64748b">1.5</text>
-<text x="34" y="375" transform="rotate(-90 34 375)" font-family="Arial" font-size="16" fill="#475569">Slippage (bps)</text>
-<rect x="200" y="267" width="150" height="293" rx="8" fill="#64748b"/>
-<rect x="430" y="267.4" width="150" height="292.6" rx="8" fill="#0f766e"/>
-<text x="275" y="245" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700" fill="#0f172a">1.2766</text>
-<text x="505" y="245" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700" fill="#0f172a">1.2751</text>
-<text x="275" y="598" text-anchor="middle" font-family="Arial" font-size="19" font-weight="700" fill="#0f172a">TWAP</text>
-<text x="505" y="598" text-anchor="middle" font-family="Arial" font-size="19" font-weight="700" fill="#0f172a">FlowOE</text>
-<rect x="760" y="190" width="260" height="190" rx="16" fill="#f8fafc" stroke="#cbd5e1"/>
-<text x="785" y="230" font-family="Arial" font-size="20" font-weight="700" fill="#0f172a">Observed smoke delta</text>
-<text x="785" y="275" font-family="Arial" font-size="36" font-weight="700" fill="#0f766e">0.0015 bps</text>
-<text x="785" y="310" font-family="Arial" font-size="16" fill="#475569">TWAP − FlowOE</text>
-<text x="785" y="350" font-family="Arial" font-size="16" fill="#475569">This value is a regression snapshot,</text>
-<text x="785" y="372" font-family="Arial" font-size="16" fill="#475569">not the resume's 2.4 bps claim.</text>
-<rect x="760" y="410" width="260" height="150" rx="16" fill="#f8fafc" stroke="#cbd5e1"/>
-<text x="785" y="448" font-family="Arial" font-size="20" font-weight="700" fill="#0f172a">CPU latency smoke</text>
-<text x="785" y="492" font-family="Arial" font-size="34" font-weight="700" fill="#0f172a">3.637 ms</text>
-<text x="785" y="525" font-family="Arial" font-size="15" fill="#475569">p99 @ 16 ODE steps</text>
-<text x="785" y="547" font-family="Arial" font-size="15" fill="#475569">No CUDA acceleration.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+<rect width="1200" height="720" fill="#f7f7f5"/>
+<rect x="45" y="35" width="1110" height="650" rx="10" fill="white" stroke="#c9c9c4"/>
+<text x="82" y="82" font-family="Arial,sans-serif" font-size="31" font-weight="700" fill="#202124">Synthetic smoke regression</text>
+<text x="82" y="112" font-family="Arial,sans-serif" font-size="16" fill="#5f6368">CI run #84 · 12 epochs · 100 evaluation episodes · synthetic data only</text>
+
+<line x1="100" y1="560" x2="690" y2="560" stroke="#70757a" stroke-width="2"/>
+<line x1="100" y1="205" x2="100" y2="560" stroke="#70757a" stroke-width="2"/>
+<line x1="100" y1="410" x2="690" y2="410" stroke="#e0e0dc"/>
+<line x1="100" y1="300" x2="690" y2="300" stroke="#e0e0dc"/>
+<text x="75" y="566" text-anchor="end" font-family="Arial" font-size="13" fill="#5f6368">0</text>
+<text x="75" y="414" text-anchor="end" font-family="Arial" font-size="13" fill="#5f6368">1</text>
+<text x="75" y="304" text-anchor="end" font-family="Arial" font-size="13" fill="#5f6368">2</text>
+<text x="75" y="208" text-anchor="end" font-family="Arial" font-size="13" fill="#5f6368">3</text>
+<text x="36" y="390" transform="rotate(-90 36 390)" font-family="Arial" font-size="16" fill="#3c4043">Slippage (bps)</text>
+<rect x="205" y="366.8" width="170" height="193.2" fill="#6b7280"/>
+<rect x="455" y="372.0" width="170" height="188.0" fill="#3f766d"/>
+<text x="290" y="345" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700" fill="#202124">1.27657</text>
+<text x="540" y="351" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700" fill="#202124">1.24115</text>
+<text x="290" y="596" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700" fill="#202124">TWAP</text>
+<text x="540" y="596" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700" fill="#202124">FlowOE</text>
+
+<rect x="745" y="180" width="355" height="130" rx="8" fill="#f8f8f6" stroke="#d2d2cc"/>
+<text x="770" y="217" font-family="Arial" font-size="19" font-weight="700" fill="#202124">Mean difference</text>
+<text x="770" y="259" font-family="Arial" font-size="30" font-weight="700" fill="#3f766d">0.03541 bps</text>
+<text x="770" y="287" font-family="Arial" font-size="14" fill="#5f6368">TWAP − FlowOE</text>
+
+<rect x="745" y="335" width="355" height="160" rx="8" fill="#f8f8f6" stroke="#d2d2cc"/>
+<text x="770" y="372" font-family="Arial" font-size="19" font-weight="700" fill="#202124">95% bootstrap CI</text>
+<text x="770" y="408" font-family="Arial" font-size="15" fill="#5f6368">TWAP</text>
+<text x="900" y="408" font-family="monospace" font-size="15" fill="#202124">1.10875 – 1.45308</text>
+<text x="770" y="442" font-family="Arial" font-size="15" fill="#5f6368">FlowOE</text>
+<text x="900" y="442" font-family="monospace" font-size="15" fill="#202124">1.06910 – 1.41778</text>
+<text x="770" y="476" font-family="Arial" font-size="14" fill="#5f6368">Both methods completed 100% of requested quantity.</text>
+
+<rect x="745" y="520" width="355" height="105" rx="8" fill="#f8f8f6" stroke="#d2d2cc"/>
+<text x="770" y="555" font-family="Arial" font-size="19" font-weight="700" fill="#202124">Important</text>
+<text x="770" y="584" font-family="Arial" font-size="14" fill="#5f6368">This synthetic result is for regression testing.</text>
+<text x="770" y="607" font-family="Arial" font-size="14" fill="#5f6368">It is not the 2.4 bps real-market claim.</text>
+
+<text x="82" y="640" font-family="Arial" font-size="14" fill="#5f6368">Source: GitHub Actions run #84 output recorded on the project branch.</text>
 </svg>
