@@ -1,0 +1,11 @@
+.git
+.github
+.cache
+data/real
+results
+*.pyc
+__pycache__
+.pytest_cache
+flowTorchcfm
+flowTorchdyn
+flowTorch2trt_dynamic
