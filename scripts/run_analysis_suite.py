@@ -365,7 +365,7 @@ def main():
 
     depth_rows = []
     for levels in [1, 3, 5, 10]:
-        ev, _ = evaluate(cmf, x, book, trades, ntrain, steps=16, quantity=20.0, levels=levels)
+        ev, _ = evaluate(cfm, x, book, trades, ntrain, steps=16, quantity=20.0, levels=levels)
         depth_rows.append({
             "levels": levels,
             "mean_flow_bps": ev.flow.mean(),
