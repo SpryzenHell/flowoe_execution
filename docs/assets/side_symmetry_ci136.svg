@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="650" viewBox="0 0 900 650">
+<rect width="900" height="650" fill="white"/><text x="450" y="50" text-anchor="middle" font-family="Arial" font-size="30" font-weight="700" fill="#202124">Buy / sell symmetry — CI run #136</text>
+<text x="450" y="80" text-anchor="middle" font-family="Arial" font-size="15" fill="#5f6368">Same trend-regime model and evaluation windows, with order side changed.</text>
+<line x1="110" y1="545" x2="790" y2="545" stroke="#4b5563" stroke-width="2"/><line x1="110" y1="120" x2="110" y2="545" stroke="#4b5563" stroke-width="2"/>
+<line x1="110" y1="332" x2="790" y2="332" stroke="#d1d5db" stroke-width="2" stroke-dasharray="8 8"/>
+<rect x="250" y="138" width="150" height="407" fill="#2563eb"/><rect x="530" y="505" width="150" height="40" fill="#dc2626"/>
+<g font-family="Arial" font-size="18" fill="#202124"><text x="325" y="575" text-anchor="middle">Buy</text><text x="605" y="575" text-anchor="middle">Sell</text><text x="325" y="115" text-anchor="middle">+0.4347 bps</text><text x="605" y="490" text-anchor="middle">−0.4158 bps</text><text x="50" y="335" text-anchor="middle" transform="rotate(-90 50 335)">Mean improvement vs TWAP (bps)</text><text x="610" y="120" font-size="14" fill="#5f6368">0 bps = no improvement</text></g>
+</svg>
