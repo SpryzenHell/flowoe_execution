@@ -1,7 +1,5 @@
 # FlowOE Execution
 
-![FlowOE Execution](main.png)
-
 A PyTorch research project for generating order-execution schedules from limit-order-book data, replaying them against real book depth, and measuring execution quality.
 
 ## What this project does
