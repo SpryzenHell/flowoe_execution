@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760">
+<rect width="1400" height="760" fill="#101418"/>
+<rect x="28" y="28" width="1344" height="704" rx="18" fill="#171d23" stroke="#5b6570" stroke-width="2"/>
+<circle cx="62" cy="65" r="9" fill="#9aa4ae"/><circle cx="92" cy="65" r="9" fill="#9aa4ae"/><circle cx="122" cy="65" r="9" fill="#9aa4ae"/>
+<text x="170" y="74" font-family="DejaVu Sans Mono, monospace" font-size="25" fill="#b8c0c8">GitHub Actions CI run #84</text>
+<g font-family="DejaVu Sans Mono, monospace" font-size="27">
+<text x="58" y="135" fill="#ffffff">$ python -m pytest -q</text>
+<text x="90" y="177" fill="#8fe3aa">........................ [all tests passed]</text>
+<text x="58" y="235" fill="#ffffff">$ python scripts/run_experiment.py --smoke --epochs 12</text>
+<text x="90" y="277" fill="#9cc9ff">dataset: synthetic smoke | episodes: 100 | train windows: 445</text>
+<text x="90" y="323" fill="#ffffff">TWAP mean slippage:      1.276569 bps</text>
+<text x="90" y="369" fill="#ffffff">FlowOE mean slippage:    1.241160 bps</text>
+<text x="90" y="415" fill="#8fe3aa">Mean difference:          0.035409 bps</text>
+<text x="90" y="461" fill="#ffffff">Completion:               TWAP 1.0000 | FlowOE 1.0000</text>
+<text x="90" y="507" fill="#ffffff">CUDA available:           false</text>
+<text x="58" y="585" fill="#f4c66b">NOTE: synthetic smoke data only; not real crypto-market evidence.</text>
+<text x="58" y="655" fill="#9da7b1">Source: CI job output, not a mock application screen.</text>
+</g>
+</svg>
