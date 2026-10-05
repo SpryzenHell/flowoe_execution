@@ -1,11 +1,7 @@
-# Third-party provenance
+# Third-party notices
 
-The original merged repository combines three public projects:
+This project includes third-party code and libraries.
 
-- `atong01/conditional-flow-matching` — MIT License.
-- `DiffEqML/torchdyn` — Apache License 2.0.
-- `grimoire/torch2trt_dynamic` — NVIDIA permissive license as distributed with that upstream repository.
+Their original license files and copyright notices are kept with the relevant code. When redistributing those components, keep the applicable license and copyright text.
 
-The new project-specific application layer is under `src/flowoe_execution/`. The legacy merged trees are retained for provenance and are not required by the clean application layer.
-
-When redistributing upstream source, retain each upstream license and copyright notice.
+The main FlowOE application code is under `src/flowoe_execution/`.
