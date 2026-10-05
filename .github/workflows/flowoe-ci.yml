@@ -17,12 +17,12 @@ jobs:
       - run: python -m compileall -q src scripts tests
       - run: python -m pytest -q
       - run: python scripts/run_experiment.py --smoke --epochs 12
-      - run: python scripts/run_analysis_suite.py --quick --output ci_analysis
+      - run: python scripts/run_analysis_suite.py --n 1200 --epochs 3 --output ci_analysis
 
       - name: Upload analysis outputs
         uses: actions/upload-artifact@v4
         with:
-          name: flowoe-analysis-results
+          name: flowoe-analysis-full-results
           path: ci_analysis/
           if-no-files-found: error
           retention-days: 14
