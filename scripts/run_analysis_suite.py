@@ -165,14 +165,14 @@ def train_pf(book, seed, epochs):
     return model, x, ntrain, losses
 
 
-def evaluate(model, x, book, trades, ntrain, steps=16, quantity=1.0):
-    sim = ExecutionSimulator(quantity=quantity)
+def evaluate(model, x, book, trades, ntrain, steps=16, quantity=1.0, context=32, side="buy", levels=10):
+    sim = ExecutionSimulator(quantity=quantity, side=side, levels=levels)
     rows, schedules = [], []
     for i in range(ntrain, len(book) - 8, 24):
-        context = x[i - 32:i].unsqueeze(0)
-        torch.manual_seed(100000 + i + steps)
+        context_x = x[i - context:i].unsqueeze(0)
+        torch.manual_seed(100000 + i + steps + context + levels)
         with torch.no_grad():
-            pred = model.sample(context, "crypto", steps=steps)[0].numpy()
+            pred = model.sample(context_x, "crypto", steps=steps)[0].numpy()
         schedule = make_schedule_from_trajectory(pred)
         flow = sim.run(book.iloc[i:i + 8], schedule, benchmark="trade_vwap", trades=trades, strategy="flowoe")
         twap = sim.run(book.iloc[i:i + 8], np.ones(8) / 8, benchmark="trade_vwap", trades=trades, strategy="twap")
