@@ -4,12 +4,15 @@
     "cfm_seed_fits": 20,
     "schedule_evaluations": 35,
     "sampling_step_settings": 6,
-    "quantity_settings": 5
+    "quantity_settings": 5,
+    "depth_settings": 4,
+    "context_length_settings": 3,
+    "side_settings": 2
   },
   "trend_seed_mean_improvement_bps": {
-    "mean": 0.2667739346716177,
-    "ci95": [0.2266934259368481, 0.3070681016370387]
+    "mean": 0.428693608668938,
+    "ci95": [0.3890081895003701, 0.484491058996163]
   },
-  "elapsed_seconds": 24.22277065100002,
+  "elapsed_seconds": 12.612759991999837,
   "note": "Synthetic-only experiment suite. Not real-market evidence."
 }
