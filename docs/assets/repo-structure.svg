@@ -1,26 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
-<rect width="1200" height="700" fill="#f7f7f5"/>
-<rect x="45" y="40" width="1110" height="610" rx="10" fill="white" stroke="#c9c9c4"/>
-<text x="80" y="88" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#202124">Repository layout</text>
-<text x="80" y="116" font-family="Arial,sans-serif" font-size="15" fill="#5f6368">Project-specific code is separated from the retained upstream source trees.</text>
-<text x="90" y="166" font-family="monospace" font-size="16" fill="#202124">flowoe_execution/</text>
-<g font-family="monospace" font-size="15" fill="#303134">
-<text x="90" y="204">├── src/flowoe_execution/</text>
-<text x="120" y="232">├── data.py</text>
-<text x="120" y="258">├── features.py</text>
-<text x="120" y="284">├── model.py</text>
-<text x="120" y="310">├── execution.py</text>
-<text x="120" y="336">├── metrics.py</text>
-<text x="120" y="362">└── cuda/</text>
-<text x="90" y="404">├── scripts/</text>
-<text x="120" y="430">├── run_experiment.py</text>
-<text x="120" y="456">├── validate_real_data.py</text>
-<text x="120" y="482">├── reconstruct_binance_t_depth.py</text>
-<text x="120" y="508">├── build_trt_engine.py</text>
-<text x="120" y="534">└── benchmark_*.py</text>
-<text x="90" y="576">├── tests/</text>
-<text x="90" y="602">├── docs/assets/</text>
-<text x="90" y="628">└── README.md / pyproject.toml / Dockerfile</text>
-</g>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640">
+  <rect width="1200" height="640" fill="#f4f7fb"/>
+  <rect x="38" y="30" width="1124" height="580" rx="24" fill="#ffffff" stroke="#cfd8e3" stroke-width="2"/>
+  <text x="74" y="80" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#162033">Project structure</text>
+  <text x="74" y="108" font-family="Arial, sans-serif" font-size="16" fill="#5e6b7d">A simple map of the code, tests, scripts and docs.</text>
+
+  <rect x="70" y="150" width="510" height="405" rx="20" fill="#f8fbff" stroke="#a9bdd2"/>
+  <text x="98" y="192" font-family="DejaVu Sans Mono, monospace" font-size="20" font-weight="700" fill="#17324d">src/flowoe_execution/</text>
+  <g font-family="DejaVu Sans Mono, monospace" font-size="17" fill="#223247">
+    <text x="100" y="232">├── data.py</text>
+    <text x="100" y="266">├── features.py</text>
+    <text x="100" y="300">├── model.py</text>
+    <text x="100" y="334">├── execution.py</text>
+    <text x="100" y="368">├── metrics.py</text>
+    <text x="100" y="402">├── ode.py</text>
+    <text x="100" y="436">└── cuda/</text>
+  </g>
+
+  <rect x="620" y="150" width="510" height="190" rx="20" fill="#fffaf4" stroke="#dcc8a8"/>
+  <text x="648" y="192" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#3d2e1f">scripts/</text>
+  <g font-family="DejaVu Sans Mono, monospace" font-size="16" fill="#3d3328">
+    <text x="648" y="226">run_experiment.py</text>
+    <text x="648" y="256">run_analysis_suite.py</text>
+    <text x="648" y="286">validate_real_data.py</text>
+    <text x="648" y="316">reconstruct_binance_t_depth.py</text>
+  </g>
+
+  <rect x="620" y="360" width="510" height="195" rx="20" fill="#f5fbf7" stroke="#a8c9b1"/>
+  <text x="648" y="402" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#23432c">checks and docs</text>
+  <g font-family="DejaVu Sans Mono, monospace" font-size="16" fill="#2c3c31">
+    <text x="648" y="436">tests/</text>
+    <text x="648" y="468">docs/assets/</text>
+    <text x="648" y="500">README.md</text>
+    <text x="648" y="532">pyproject.toml</text>
+  </g>
+
+  <line x1="580" y1="250" x2="620" y2="250" stroke="#6b7d90" stroke-width="3"/>
+  <polygon points="620,250 608,244 608,256" fill="#6b7d90"/>
+  <line x1="580" y1="456" x2="620" y2="456" stroke="#6b7d90" stroke-width="3"/>
+  <polygon points="620,456 608,450 608,462" fill="#6b7d90"/>
+
+  <rect x="70" y="575" width="1060" height="12" rx="6" fill="#17324d"/>
 </svg>
