@@ -103,9 +103,9 @@ The repository CI runs this command.
 
 The current code-affecting CI run completed successfully with all tests passing.
 
-![CI verification output](docs/assets/ci-verification.svg)
+![CI verification output](docs/assets/ci_run_84_terminal.svg)
 
-The figure above is a repository documentation snapshot of the actual CI command sequence and the corresponding smoke-run values. It is not a mock application screen.
+The figure above is a high-contrast rendering of the actual CI command sequence and smoke-run output.
 
 ## Run the project
 
@@ -187,6 +187,54 @@ The observed mean difference in this smoke run was **0.03541 bps** in favour of 
 ![Synthetic smoke results](docs/assets/synthetic-smoke-results.svg)
 
 These numbers come from the repository's synthetic regression run. They are not a claim about real market performance.
+
+
+## Extended experiment analysis
+
+The repository includes a separate analysis suite for model-development and execution-mechanics checks. It is synthetic-only and does not use or imply real market performance.
+
+Install the analysis dependencies:
+
+```bash
+make install-analysis
+```
+
+Run the standard analysis:
+
+```bash
+make analysis
+```
+
+The default run covers:
+
+| Analysis | Settings |
+|---|---:|
+| Synthetic market regimes | 7 |
+| CFM random seeds | 5 |
+| CFM seed fits | 20 |
+| Schedule-family evaluations | 35 |
+| Sampling-step sensitivity | 4, 8, 12, 16, 24, 32 |
+| Order-size sensitivity | 1, 4, 8, 16, 32 |
+| L2 depth sensitivity | 1, 3, 5, 10 levels |
+| Context-length sensitivity | 16, 32, 64 events |
+| Side sensitivity | Buy / sell |
+| Model comparison | CFM / probability-flow ODE |
+
+The suite writes CSV and PNG outputs under `docs/results/analysis/`. On CI, the complete generated directory is also uploaded as the `flowoe-analysis-results` workflow artifact.
+
+![Training progress](docs/assets/training_progress.svg)
+
+*Training-progress snapshot from the synthetic analysis run. This is a development diagnostic, not a market-performance result.*
+
+![Execution depth sensitivity](docs/assets/depth_sensitivity.svg)
+
+*Execution-depth sensitivity from the analysis run. The plot illustrates how available displayed depth changes simulated completion and slippage for larger orders.*
+
+![CI terminal](docs/assets/ci_run_84_terminal.svg)
+
+*Readable terminal snapshot from CI run #84. The underlying smoke values are synthetic.*
+
+The full analysis command is intentionally separate from the normal smoke command so a clean checkout remains fast and predictable.
 
 ## Execution model
 
