@@ -99,11 +99,11 @@ This is one synthetic volatile-regime comparison. It is a diagnostic rather than
 
 The repository includes readable vector figures derived from the same CI snapshot:
 
-- [Seed robustness](../assets/seed_robustness_ci136.svg)
-- [Sampling-step sensitivity](../assets/sampling_steps_ci136.svg)
-- [Order-size sensitivity](../assets/quantity_sensitivity_ci136.svg)
-- [Context length](../assets/context_sensitivity_ci136.svg)
-- [Buy / sell symmetry](../assets/side_symmetry_ci136.svg)
-- [CFM vs PF-ODE](../assets/cfm_pf_ci136.svg)
+- [Seed robustness](../../assets/seed_robustness_ci136.svg)
+- [Sampling-step sensitivity](../../assets/sampling_steps_ci136.svg)
+- [Order-size sensitivity](../../assets/quantity_sensitivity_ci136.svg)
+- [Context length](../../assets/context_sensitivity_ci136.svg)
+- [Buy / sell symmetry](../../assets/side_symmetry_ci136.svg)
+- [CFM vs PF-ODE](../../assets/cfm_pf_ci136.svg)
 
 The CI job also produced the raw PNG analysis bundle as a workflow artifact.
