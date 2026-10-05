@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="650" viewBox="0 0 1000 650">
+<rect width="1000" height="650" fill="white"/><text x="500" y="50" text-anchor="middle" font-family="Arial" font-size="30" font-weight="700" fill="#202124">Inference context length — CI run #136</text>
+<text x="500" y="80" text-anchor="middle" font-family="Arial" font-size="15" fill="#5f6368">Longer context did not monotonically improve the synthetic evaluation.</text>
+<line x1="110" y1="545" x2="900" y2="545" stroke="#4b5563" stroke-width="2"/><line x1="110" y1="120" x2="110" y2="545" stroke="#4b5563" stroke-width="2"/>
+<polyline points="220,455 505,195 790,330" fill="none" stroke="#2563eb" stroke-width="5"/><g fill="#2563eb"><circle cx="220" cy="455" r="8"/><circle cx="505" cy="195" r="8"/><circle cx="790" cy="330" r="8"/></g>
+<polyline points="220,440 505,440 790,440" fill="none" stroke="#f97316" stroke-width="3" stroke-dasharray="10 8"/>
+<g font-family="Arial" font-size="16" fill="#202124"><text x="220" y="580" text-anchor="middle">16</text><text x="505" y="580" text-anchor="middle">32</text><text x="790" y="580" text-anchor="middle">64</text><text x="505" y="615" text-anchor="middle">Context events</text><text x="42" y="340" text-anchor="middle" transform="rotate(-90 42 340)">Mean slippage (bps)</text><text x="740" y="125" fill="#2563eb">FlowOE</text><text x="830" y="125" fill="#f97316">TWAP</text></g>
+</svg>
