@@ -103,7 +103,7 @@ For the CI run, the same suite is executed with line coverage enabled and a miss
 
 The latest verified CI run (#136) passed compilation, the complete test suite, the smoke experiment, the analysis suite, and the analysis-artifact upload.
 
-![CI verification output](docs/assets/ci_run_84_terminal.svg)
+![CI verification output](docs/assets/ci_run_136_terminal.svg)
 
 The figure above is a high-contrast rendering of the actual CI command sequence and smoke-run output.
 
