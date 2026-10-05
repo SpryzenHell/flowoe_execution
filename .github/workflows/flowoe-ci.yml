@@ -1,4 +1,8 @@
 name: FlowOE CI
+
+concurrency:
+  group: flowoe-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 on:
   push:
     paths: ['src/flowoe_execution/**','scripts/**','tests/**','pyproject.toml']
