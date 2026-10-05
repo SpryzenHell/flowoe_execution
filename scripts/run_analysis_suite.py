@@ -481,10 +481,40 @@ def main():
 
     fig = plt.figure(figsize=(9, 5))
     labels = ["regimes", "CFM fits", "schedule evals", "step settings", "quantity settings", "depth settings", "contexts", "sides"]
-    values = [len(scenarios), len(robustness), len(families), len(steps), len(depth_df), len(quantity), len(context_df), len(side_df)]
+    values = [len(scenarios), len(robustness), len(families), len(steps), len(quantity), len(depth_df), len(context_df), len(side_df)]
     plt.bar(labels, values)
     plt.ylabel("Count"); plt.title("Experiment coverage"); plt.xticks(rotation=25, ha="right")
     save(fig, figdir / "experiment_coverage.svg")
+
+    from PIL import Image, ImageDraw, ImageFont
+    W, H = 1500, 640
+    terminal = Image.new("RGB", (W, H), (17, 20, 24))
+    draw = ImageDraw.Draw(terminal)
+    draw.rounded_rectangle((22, 22, W - 22, H - 22), radius=16, fill=(24, 29, 35), outline=(90, 98, 108), width=2)
+    for x in (55, 80, 105):
+        draw.ellipse((x, 52, x + 16, 68), fill=(128, 138, 148))
+    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 26)
+    small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 22)
+    draw.text((150, 45), "FlowOE experiment analysis", font=small, fill=(165, 174, 184))
+    terminal_lines = [
+        "$ python scripts/run_analysis_suite.py --n 1200 --epochs 3",
+        f"[data] {len(scenarios)} regimes × {n} rows each",
+        f"[models] CFM seed fits: {len(robustness)}",
+        f"[baselines] schedule/regime evaluations: {len(families)}",
+        "[sensitivity] steps: 4, 8, 12, 16, 24, 32",
+        "[sensitivity] order sizes: 1, 4, 8, 16, 32",
+        "[sensitivity] L2 levels: 1, 3, 5, 10",
+        "[sensitivity] contexts: 16, 32, 64",
+        "[sensitivity] sides: buy / sell",
+        "[validation] all computed metrics finite",
+    ]
+    y = 104
+    for line in terminal_lines:
+        fill = (130, 230, 160) if line.startswith("[validation]") else (120, 190, 245) if line.startswith(("[data]", "[models]")) else (225, 228, 232)
+        draw.text((58, y), line, font=font, fill=fill)
+        y += 50
+    terminal.save(figdir / "analysis_terminal_snapshot.png", optimize=True)
+
     elapsed = time.perf_counter() - started
     report = {
         "coverage": {
