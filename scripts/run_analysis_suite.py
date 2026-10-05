@@ -223,7 +223,7 @@ def main():
     ap.add_argument("--quick", action="store_true")
     args = ap.parse_args()
 
-    scenarios = SCENARIOS[:4] if args.quick else SCENARIOS
+    scenarios = ["trend", "volatile", "mean_revert", "thin_book"] if args.quick else SCENARIOS
     seeds = SEEDS[:2] if args.quick else SEEDS
     n = min(args.n, 1600) if args.quick else args.n
     epochs = min(args.epochs, 3) if args.quick else args.epochs
