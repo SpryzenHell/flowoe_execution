@@ -99,7 +99,7 @@ Run the tests:
 python -m pytest -q
 ```
 
-The repository CI runs this command.
+For the CI run, the same suite is executed with line coverage enabled and a missing-line report. Coverage XML is saved with the analysis artifact.
 
 The latest verified CI run (#136) passed compilation, the complete test suite, the smoke experiment, the analysis suite, and the analysis-artifact upload.
 
@@ -242,7 +242,7 @@ Each CI analysis run produces:
 - PNG figures for the corresponding sensitivity and training diagnostics.
 - `analysis_report.json` with experiment coverage and runtime.
 
-The workflow stores these files as the `flowoe-analysis-full-results` artifact. This is the authoritative extended-analysis output for the CI run.
+The workflow stores these files, together with `coverage.xml`, as the `flowoe-analysis-full-results` artifact. This is the authoritative extended-analysis output for the CI run.
 
 The repository does not commit generated market-data or experiment-output directories.
 
