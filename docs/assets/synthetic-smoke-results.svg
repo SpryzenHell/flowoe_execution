@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <rect width="1200" height="720" fill="#f5f7fa"/>
+  <rect x="42" y="34" width="1116" height="648" rx="22" fill="#ffffff" stroke="#d6dde7" stroke-width="2"/>
+  <text x="80" y="80" font-family="Arial, sans-serif" font-size="31" font-weight="700" fill="#172033">Synthetic smoke check</text>
+  <text x="80" y="110" font-family="Arial, sans-serif" font-size="16" fill="#657286">Recorded regression run · 12 epochs · 100 evaluation episodes · synthetic data only</text>
+
+  <rect x="80" y="155" width="630" height="430" rx="18" fill="#f9fbfd" stroke="#d7dee8"/>
+  <text x="115" y="190" font-family="Arial" font-size="19" font-weight="700" fill="#1b2a3e">Mean slippage</text>
+
+  <line x1="135" y1="520" x2="665" y2="520" stroke="#7b8794" stroke-width="2"/>
+  <line x1="135" y1="220" x2="135" y2="520" stroke="#7b8794" stroke-width="2"/>
+  <line x1="135" y1="420" x2="665" y2="420" stroke="#e3e8ef"/>
+  <line x1="135" y1="320" x2="665" y2="320" stroke="#e3e8ef"/>
+  <line x1="135" y1="250" x2="665" y2="250" stroke="#e3e8ef"/>
+
+  <text x="118" y="525" text-anchor="end" font-family="Arial" font-size="13" fill="#677386">0</text>
+  <text x="118" y="425" text-anchor="end" font-family="Arial" font-size="13" fill="#677386">1</text>
+  <text x="118" y="325" text-anchor="end" font-family="Arial" font-size="13" fill="#677386">2</text>
+  <text x="118" y="255" text-anchor="end" font-family="Arial" font-size="13" fill="#677386">3</text>
+  <text x="98" y="390" text-anchor="middle" transform="rotate(-90 98 390)" font-family="Arial" font-size="15" fill="#556276">slippage (bps)</text>
+
+  <rect x="210" y="392.4" width="145" height="127.6" rx="10" fill="#718198"/>
+  <rect x="445" y="396.0" width="145" height="124.0" rx="10" fill="#2f7d62"/>
+  <text x="282" y="372" text-anchor="middle" font-family="Arial" font-size="24" font-weight="700" fill="#1b2a3e">1.27657</text>
+  <text x="517" y="376" text-anchor="middle" font-family="Arial" font-size="24" font-weight="700" fill="#1b2a3e">1.24115</text>
+  <text x="282" y="555" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700" fill="#1b2a3e">TWAP</text>
+  <text x="517" y="555" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700" fill="#1b2a3e">FlowOE</text>
+
+  <rect x="750" y="155" width="345" height="120" rx="16" fill="#eff7f3" stroke="#b9d5c5"/>
+  <text x="778" y="193" font-family="Arial" font-size="18" font-weight="700" fill="#2b5c48">Mean difference</text>
+  <text x="778" y="238" font-family="Arial" font-size="31" font-weight="700" fill="#2f7d62">0.03541 bps</text>
+  <text x="778" y="260" font-family="Arial" font-size="13" fill="#5f6d7d">TWAP − FlowOE</text>
+
+  <rect x="750" y="300" width="345" height="150" rx="16" fill="#f8fafc" stroke="#d6dde7"/>
+  <text x="778" y="338" font-family="Arial" font-size="18" font-weight="700" fill="#1b2a3e">Recorded 95% bootstrap CI</text>
+  <text x="778" y="375" font-family="Arial" font-size="14" fill="#667286">TWAP</text>
+  <text x="895" y="375" font-family="DejaVu Sans Mono, monospace" font-size="14" fill="#1b2a3e">1.10875 – 1.45308</text>
+  <text x="778" y="409" font-family="Arial" font-size="14" fill="#667286">FlowOE</text>
+  <text x="895" y="409" font-family="DejaVu Sans Mono, monospace" font-size="14" fill="#1b2a3e">1.06910 – 1.41778</text>
+
+  <rect x="750" y="475" width="345" height="110" rx="16" fill="#fff9ef" stroke="#dec9a0"/>
+  <text x="778" y="512" font-family="Arial" font-size="18" font-weight="700" fill="#5c461b">Use this correctly</text>
+  <text x="778" y="543" font-family="Arial" font-size="14" fill="#6c604c">This is a synthetic regression result.</text>
+  <text x="778" y="567" font-family="Arial" font-size="14" fill="#6c604c">It is not a real-market 2.4 bps result.</text>
+
+  <text x="80" y="630" font-family="Arial" font-size="14" fill="#667286">Both methods completed the full requested quantity in this smoke run.</text>
+</svg>

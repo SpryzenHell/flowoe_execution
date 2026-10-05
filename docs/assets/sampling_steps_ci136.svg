@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="700" viewBox="0 0 1100 700">
+<rect width="1100" height="700" fill="white"/><text x="550" y="50" text-anchor="middle" font-family="Arial" font-size="30" font-weight="700" fill="#202124">Sampling-step sensitivity — CI run #136</text>
+<text x="550" y="80" text-anchor="middle" font-family="Arial" font-size="15" fill="#5f6368">Mean slippage on the synthetic trend-regime evaluation set.</text>
+<line x1="110" y1="590" x2="1000" y2="590" stroke="#4b5563" stroke-width="2"/><line x1="110" y1="120" x2="110" y2="590" stroke="#4b5563" stroke-width="2"/>
+<g stroke="#e5e7eb"><line x1="110" y1="515" x2="1000" y2="515"/><line x1="110" y1="440" x2="1000" y2="440"/><line x1="110" y1="365" x2="1000" y2="365"/><line x1="110" y1="290" x2="1000" y2="290"/><line x1="110" y1="215" x2="1000" y2="215"/></g>
+<g font-family="Arial" font-size="14" fill="#4b5563"><text x="90" y="595" text-anchor="end">1.3</text><text x="90" y="520" text-anchor="end">1.4</text><text x="90" y="445" text-anchor="end">1.5</text><text x="90" y="370" text-anchor="end">1.6</text><text x="90" y="295" text-anchor="end">1.7</text><text x="90" y="220" text-anchor="end">1.8</text></g>
+<polyline points="170,321 320,334 470,150 620,267 770,415 920,322" fill="none" stroke="#2563eb" stroke-width="4"/>
+<g fill="#2563eb"><circle cx="170" cy="321" r="7"/><circle cx="320" cy="334" r="7"/><circle cx="470" cy="150" r="7"/><circle cx="620" cy="267" r="7"/><circle cx="770" cy="415" r="7"/><circle cx="920" cy="322" r="7"/></g>
+<polyline points="170,170 320,170 470,170 620,170 770,170 920,170" fill="none" stroke="#f97316" stroke-width="3" stroke-dasharray="10 8"/>
+<g font-family="Arial" font-size="15" fill="#202124"><text x="170" y="620" text-anchor="middle">4</text><text x="320" y="620" text-anchor="middle">8</text><text x="470" y="620" text-anchor="middle">12</text><text x="620" y="620" text-anchor="middle">16</text><text x="770" y="620" text-anchor="middle">24</text><text x="920" y="620" text-anchor="middle">32</text><text x="560" y="655" text-anchor="middle">Sampling steps</text><text x="42" y="370" text-anchor="middle" transform="rotate(-90 42 370)">Mean slippage (bps)</text><text x="820" y="120" fill="#2563eb">FlowOE</text><text x="900" y="120" fill="#f97316">TWAP</text></g>
+</svg>

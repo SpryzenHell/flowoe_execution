@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="700" viewBox="0 0 1100 700">
+<rect width="1100" height="700" fill="white"/><text x="550" y="50" text-anchor="middle" font-family="Arial" font-size="30" font-weight="700" fill="#202124">Order-quantity sensitivity — CI run #136</text>
+<text x="550" y="80" text-anchor="middle" font-family="Arial" font-size="15" fill="#5f6368">Thin-book synthetic regime. Completion falls as requested size grows.</text>
+<line x1="110" y1="590" x2="1000" y2="590" stroke="#4b5563" stroke-width="2"/><line x1="110" y1="120" x2="110" y2="590" stroke="#4b5563" stroke-width="2"/>
+<g stroke="#e5e7eb"><line x1="110" y1="500" x2="1000" y2="500"/><line x1="110" y1="410" x2="1000" y2="410"/><line x1="110" y1="320" x2="1000" y2="320"/><line x1="110" y1="230" x2="1000" y2="230"/></g>
+<g font-family="Arial" font-size="14" fill="#4b5563"><text x="90" y="595" text-anchor="end">1.2</text><text x="90" y="505" text-anchor="end">1.6</text><text x="90" y="415" text-anchor="end">2.0</text><text x="90" y="325" text-anchor="end">2.4</text><text x="90" y="235" text-anchor="end">2.8</text><text x="90" y="145" text-anchor="end">3.2</text></g>
+<polyline points="170,420 360,383 550,285 740,191 930,70" fill="none" stroke="#2563eb" stroke-width="4"/>
+<polyline points="170,471 360,448 550,389 740,255 930,72" fill="none" stroke="#f97316" stroke-width="3" stroke-dasharray="10 8"/>
+<g fill="#2563eb"><circle cx="170" cy="420" r="7"/><circle cx="360" cy="383" r="7"/><circle cx="550" cy="285" r="7"/><circle cx="740" cy="191" r="7"/><circle cx="930" cy="70" r="7"/></g>
+<g font-family="Arial" font-size="15" fill="#202124"><text x="170" y="620" text-anchor="middle">1</text><text x="360" y="620" text-anchor="middle">4</text><text x="550" y="620" text-anchor="middle">8</text><text x="740" y="620" text-anchor="middle">16</text><text x="930" y="620" text-anchor="middle">32</text><text x="550" y="655" text-anchor="middle">Requested quantity</text><text x="42" y="370" text-anchor="middle" transform="rotate(-90 42 370)">Mean slippage (bps)</text><text x="820" y="120" fill="#2563eb">FlowOE</text><text x="900" y="120" fill="#f97316">TWAP</text></g>
+</svg>

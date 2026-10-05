@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="570" viewBox="0 0 1400 570">
+  <rect width="1400" height="570" fill="#f6f7fb"/>
+  <rect x="36" y="28" width="1328" height="514" rx="26" fill="#ffffff" stroke="#d5dbe5" stroke-width="2"/>
+  <text x="72" y="78" font-family="Arial, sans-serif" font-size="33" font-weight="700" fill="#182235">Real-data result checklist</text>
+  <text x="72" y="108" font-family="Arial, sans-serif" font-size="16" fill="#617086">Every item must be true before a measured number is reported.</text>
+
+  <g>
+    <rect x="72" y="155" width="238" height="270" rx="20" fill="#f7fbff" stroke="#b5c8dd"/>
+    <circle cx="111" cy="195" r="19" fill="#244f7a"/><text x="111" y="202" text-anchor="middle" font-family="Arial" font-size="15" font-weight="700" fill="#ffffff">1</text>
+    <text x="145" y="201" font-family="Arial" font-size="19" font-weight="700" fill="#182235">Data record</text>
+    <text x="96" y="252" font-family="Arial" font-size="15" fill="#4f6075">
+      <tspan x="96" dy="0">Source</tspan>
+      <tspan x="96" dy="25">Dates</tspan>
+      <tspan x="96" dy="25">Instrument</tspan>
+      <tspan x="96" dy="25">SHA-256</tspan>
+    </text>
+  </g>
+
+  <g>
+    <rect x="326" y="155" width="238" height="270" rx="20" fill="#f6fcf8" stroke="#b5d3bd"/>
+    <circle cx="365" cy="195" r="19" fill="#2f6c43"/><text x="365" y="202" text-anchor="middle" font-family="Arial" font-size="15" font-weight="700" fill="#ffffff">2</text>
+    <text x="399" y="201" font-family="Arial" font-size="19" font-weight="700" fill="#182235">Data checks</text>
+    <text x="350" y="252" font-family="Arial" font-size="15" fill="#4f6075">
+      <tspan x="350" dy="0">FI shape and labels</tspan>
+      <tspan x="350" dy="25">Valid top of book</tspan>
+      <tspan x="350" dy="25">Positive trade data</tspan>
+      <tspan x="350" dy="25">No ignored depth gaps</tspan>
+    </text>
+  </g>
+
+  <g>
+    <rect x="580" y="155" width="238" height="270" rx="20" fill="#fffbf2" stroke="#decda7"/>
+    <circle cx="619" cy="195" r="19" fill="#8a651f"/><text x="619" y="202" text-anchor="middle" font-family="Arial" font-size="15" font-weight="700" fill="#ffffff">3</text>
+    <text x="653" y="201" font-family="Arial" font-size="19" font-weight="700" fill="#182235">Time split</text>
+    <text x="604" y="252" font-family="Arial" font-size="15" fill="#4f6075">
+      <tspan x="604" dy="0">Train on earlier data</tspan>
+      <tspan x="604" dy="25">Evaluate later data</tspan>
+      <tspan x="604" dy="25">No future price input</tspan>
+      <tspan x="604" dy="25">Same windows for both methods</tspan>
+    </text>
+  </g>
+
+  <g>
+    <rect x="834" y="155" width="238" height="270" rx="20" fill="#fff7fb" stroke="#dfb8cd"/>
+    <circle cx="873" cy="195" r="19" fill="#8b375f"/><text x="873" y="202" text-anchor="middle" font-family="Arial" font-size="15" font-weight="700" fill="#ffffff">4</text>
+    <text x="907" y="201" font-family="Arial" font-size="19" font-weight="700" fill="#182235">Benchmark</text>
+    <text x="858" y="252" font-family="Arial" font-size="15" fill="#4f6075">
+      <tspan x="858" dy="0">Trade VWAP</tspan>
+      <tspan x="858" dy="25">TWAP baseline</tspan>
+      <tspan x="858" dy="25">Completion</tspan>
+      <tspan x="858" dy="25">Mean / median / p95</tspan>
+    </text>
+  </g>
+
+  <g>
+    <rect x="1088" y="155" width="238" height="270" rx="20" fill="#f8f6ff" stroke="#c7bfe0"/>
+    <circle cx="1127" cy="195" r="19" fill="#5c4a8b"/><text x="1127" y="202" text-anchor="middle" font-family="Arial" font-size="15" font-weight="700" fill="#ffffff">5</text>
+    <text x="1161" y="201" font-family="Arial" font-size="19" font-weight="700" fill="#182235">GPU timing</text>
+    <text x="1112" y="252" font-family="Arial" font-size="15" fill="#4f6075">
+      <tspan x="1112" dy="0">Real CUDA/TensorRT run</tspan>
+      <tspan x="1112" dy="25">p50 / p95 / p99</tspan>
+      <tspan x="1112" dy="25">Output error</tspan>
+      <tspan x="1112" dy="25">GPU + software versions</tspan>
+    </text>
+  </g>
+
+  <rect x="230" y="462" width="940" height="48" rx="24" fill="#182235"/>
+  <text x="700" y="493" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#ffffff">All five checks pass → save the JSON result → report the measured number.</text>
+</svg>

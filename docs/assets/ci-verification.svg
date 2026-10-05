@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650">
+<rect width="1200" height="650" fill="#0f1720"/>
+<rect x="55" y="45" width="1090" height="560" rx="12" fill="#151d27" stroke="#42505f"/>
+<circle cx="88" cy="76" r="7" fill="#8b949e"/><circle cx="110" cy="76" r="7" fill="#8b949e"/><circle cx="132" cy="76" r="7" fill="#8b949e"/>
+<g font-family="monospace" font-size="17" fill="#d7dee7">
+<text x="80" y="125">$ python -m pytest -q</text>
+<text x="80" y="160">............                                                             [100%]</text>
+<text x="80" y="195">$ python scripts/run_experiment.py --smoke --epochs 12</text>
+<text x="80" y="230">"dataset": "synthetic smoke"</text>
+<text x="80" y="262">"train_windows": 445,  "fi_windows": 446,  "episodes": 100</text>
+<text x="80" y="294">"twap_slippage_bps.mean": 1.2765692555</text>
+<text x="80" y="326">"flowoe_slippage_bps.mean": 1.2411548207</text>
+<text x="80" y="358">"improvement_vs_twap_bps": 0.0354144348</text>
+<text x="80" y="390">"twap_completion_mean": 1.0,  "flowoe_completion_mean": 1.0</text>
+<text x="80" y="422">"cuda_available": false</text>
+<text x="80" y="454">"note": "Synthetic smoke data only; not FI-2010 or real crypto L2."</text>
+<text x="80" y="510" fill="#aab7c4">CI run #84: dependency install + 12 tests + smoke run completed successfully.</text>
+</g>
+</svg>

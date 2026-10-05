@@ -1,0 +1,33 @@
+name: FlowOE CI
+
+concurrency:
+  group: flowoe-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  push:
+    paths: ['src/flowoe_execution/**','scripts/**','tests/**','pyproject.toml']
+  pull_request:
+    paths: ['src/flowoe_execution/**','scripts/**','tests/**','pyproject.toml']
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --index-url https://download.pytorch.org/whl/cpu 'torch>=2.1'
+      - run: python -m pip install -e '.[test,analysis]'
+      - run: python -m compileall -q src scripts tests
+      - run: mkdir -p ci_analysis
+      - run: python -m pytest -q --cov=flowoe_execution --cov-report=term-missing --cov-report=xml:ci_analysis/coverage.xml
+      - run: python scripts/run_experiment.py --smoke --epochs 12
+      - run: python scripts/run_analysis_suite.py --n 1200 --epochs 3 --output ci_analysis
+
+      - name: Upload analysis outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowoe-analysis-full-results
+          path: ci_analysis/
+          if-no-files-found: error
+          retention-days: 14
