@@ -363,6 +363,46 @@ def main():
     ])
     comparison.to_csv(out / "cfm_vs_pf_ode.csv", index=False)
 
+    depth_rows = []
+    for levels in [1, 3, 5, 10]:
+        ev, _ = evaluate(cmf, x, book, trades, ntrain, steps=16, quantity=20.0, levels=levels)
+        depth_rows.append({
+            "levels": levels,
+            "mean_flow_bps": ev.flow.mean(),
+            "mean_twap_bps": ev.twap.mean(),
+            "improvement_bps": ev.improvement.mean(),
+            "completion": ev.completion.mean(),
+            "mean_levels_consumed": ev.levels.mean(),
+        })
+    depth_df = pd.DataFrame(depth_rows)
+    depth_df.to_csv(out / "depth_sensitivity.csv", index=False)
+
+    side_rows = []
+    for side in ["buy", "sell"]:
+        ev, _ = evaluate(cmf, x, book, trades, ntrain, steps=16, side=side)
+        side_rows.append({
+            "side": side,
+            "mean_flow_bps": ev.flow.mean(),
+            "mean_twap_bps": ev.twap.mean(),
+            "improvement_bps": ev.improvement.mean(),
+            "completion": ev.completion.mean(),
+        })
+    side_df = pd.DataFrame(side_rows)
+    side_df.to_csv(out / "side_sensitivity.csv", index=False)
+
+    context_rows = []
+    for context_len in [16, 32, 64]:
+        ev, _ = evaluate(cmf, x, book, trades, ntrain, steps=16, context=context_len)
+        context_rows.append({
+            "context_length": context_len,
+            "mean_flow_bps": ev.flow.mean(),
+            "mean_twap_bps": ev.twap.mean(),
+            "improvement_bps": ev.improvement.mean(),
+            "completion": ev.completion.mean(),
+        })
+    context_df = pd.DataFrame(context_rows)
+    context_df.to_csv(out / "context_length_sensitivity.csv", index=False)
+
     fig = plt.figure(figsize=(9, 5))
     for s, (b, _) in markets.items():
         mid = ((b.bid0 + b.ask0) / 2).to_numpy()
@@ -419,6 +459,32 @@ def main():
     plt.ylabel("Mean slippage (bps)"); plt.title("Trend regime: FlowOE vs TWAP")
     save(fig, figdir / "trend_flowoe_vs_twap.svg")
 
+
+    fig = plt.figure(figsize=(8, 5))
+    plt.plot(depth_df.levels, depth_df.mean_flow_bps, "o-")
+    plt.plot(depth_df.levels, depth_df.mean_twap_bps, "o--")
+    plt.xlabel("Available L2 levels"); plt.ylabel("Mean slippage (bps)")
+    plt.title("Execution-depth sensitivity"); plt.legend(["FlowOE", "TWAP"])
+    save(fig, figdir / "depth_sensitivity.svg")
+
+    fig = plt.figure(figsize=(7, 5))
+    plt.bar(side_df.side, side_df.improvement_bps)
+    plt.ylabel("Mean improvement vs TWAP (bps)"); plt.title("Buy / sell symmetry")
+    save(fig, figdir / "side_sensitivity.svg")
+
+    fig = plt.figure(figsize=(8, 5))
+    plt.plot(context_df.context_length, context_df.mean_flow_bps, "o-")
+    plt.plot(context_df.context_length, context_df.mean_twap_bps, "o--")
+    plt.xlabel("Context length"); plt.ylabel("Mean slippage (bps)")
+    plt.title("Inference context-length sensitivity"); plt.legend(["FlowOE", "TWAP"])
+    save(fig, figdir / "context_length_sensitivity.svg")
+
+    fig = plt.figure(figsize=(9, 5))
+    labels = ["regimes", "CFM fits", "schedule evals", "step settings", "quantity settings", "depth settings", "contexts", "sides"]
+    values = [len(scenarios), len(robustness), len(families), len(steps), len(depth_df), len(quantity), len(context_df), len(side_df)]
+    plt.bar(labels, values)
+    plt.ylabel("Count"); plt.title("Experiment coverage"); plt.xticks(rotation=25, ha="right")
+    save(fig, figdir / "experiment_coverage.svg")
     elapsed = time.perf_counter() - started
     report = {
         "coverage": {
@@ -427,6 +493,9 @@ def main():
             "schedule_evaluations": len(families),
             "sampling_step_settings": len(steps),
             "quantity_settings": len(quantity),
+            "depth_settings": len(depth_df),
+            "context_length_settings": len(context_df),
+            "side_settings": len(side_df),
             "model_comparisons": 2,
         },
         "runtime_seconds": elapsed,
