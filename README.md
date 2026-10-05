@@ -220,15 +220,39 @@ The default run covers:
 | Side sensitivity | Buy / sell |
 | Model comparison | CFM / probability-flow ODE |
 
-The suite writes CSV and PNG outputs under `docs/results/analysis/`. On CI, the complete generated directory is also uploaded as the `flowoe-analysis-results` workflow artifact.
+The suite writes CSV and PNG outputs under `docs/results/analysis/`. On CI, the complete generated directory is also uploaded as the `flowoe-analysis-full-results` workflow artifact.
 
 ![Training progress](docs/assets/training_progress.svg)
 
 *Training-progress snapshot from the synthetic analysis run. This is a development diagnostic, not a market-performance result.*
 
+![Seed robustness](docs/assets/seed_robustness_ci136.svg)
+
+*Seed-level variation from the verified CI #136 analysis snapshot.*
+
 ![Execution depth sensitivity](docs/assets/depth_sensitivity.svg)
 
-*Execution-depth sensitivity from the analysis run. The plot illustrates how available displayed depth changes simulated completion and slippage for larger orders.*
+*Execution-depth sensitivity from the verified CI #136 analysis snapshot.*
+
+![Sampling-step sensitivity](docs/assets/sampling_steps_ci136.svg)
+
+*Sampling-step sensitivity from the same verified synthetic run.*
+
+![Order-size sensitivity](docs/assets/quantity_sensitivity_ci136.svg)
+
+*Order-size sensitivity from the same verified synthetic run.*
+
+![Context-length sensitivity](docs/assets/context_sensitivity_ci136.svg)
+
+*Context-length sensitivity from the same verified synthetic run.*
+
+![Buy / sell symmetry](docs/assets/side_symmetry_ci136.svg)
+
+*Buy/sell check from the same verified synthetic run.*
+
+![CFM vs probability-flow ODE](docs/assets/cfm_pf_ci136.svg)
+
+*Model comparison from the same verified synthetic run.*
 
 ![CI terminal](docs/assets/ci_run_84_terminal.svg)
 
@@ -243,6 +267,8 @@ Each CI analysis run produces:
 - `analysis_report.json` with experiment coverage and runtime.
 
 The workflow stores these files, together with `coverage.xml`, as the `flowoe-analysis-full-results` artifact. This is the authoritative extended-analysis output for the CI run.
+
+The verified CI #136 snapshot is preserved at [docs/results/analysis/CI_RUN_136.md](docs/results/analysis/CI_RUN_136.md). It contains the exact tables from that run and links to the corresponding figures.
 
 The repository does not commit generated market-data or experiment-output directories.
 
