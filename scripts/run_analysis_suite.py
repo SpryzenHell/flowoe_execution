@@ -211,15 +211,15 @@ def evaluate_family(book, trades, family, quantity=1.0):
 
 
 def save(fig, path):
-    fig.savefig(path, bbox_inches="tight")
+    fig.savefig(path.with_suffix(".png"), bbox_inches="tight", dpi=170)
     plt.close(fig)
 
 
 def main():
     ap = argparse.ArgumentParser(description="Run the FlowOE synthetic analysis and sensitivity suite.")
     ap.add_argument("--output", default="docs/results/analysis")
-    ap.add_argument("--n", type=int, default=3000)
-    ap.add_argument("--epochs", type=int, default=6)
+    ap.add_argument("--n", type=int, default=1200)
+    ap.add_argument("--epochs", type=int, default=3)
     ap.add_argument("--quick", action="store_true")
     args = ap.parse_args()
 
