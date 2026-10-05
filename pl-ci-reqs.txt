@@ -1,6 +1,0 @@
-torch
-pytorch_lightning
-scipy
-scikit-learn
-torchcde
-

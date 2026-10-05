@@ -1,9 +1,0 @@
-# @package _global_
-
-# runs 1 flowTrain, 1 validation and 1 flowTest flowStep
-
-defaults:
-  - default.yaml
-
-trainer:
-  fast_dev_run: true

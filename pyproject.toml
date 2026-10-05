@@ -6,13 +6,14 @@ build-backend = "setuptools.build_meta"
 name = "flowoe-execution"
 version = "0.1.0"
 description = "Conditional flow matching and ODE-based execution research toolkit"
+readme = "README.md"
+license = {file = "LICENSE"}
 authors = [{name = "Pirate-Emperor"}]
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.24", "pandas>=2.0", "torch>=2.1", "pyyaml>=6.0"]
 
 [project.optional-dependencies]
 research = ["scipy>=1.10", "scikit-learn>=1.3"]
-upstream = ["torchcfm", "torchdyn>=1.0.6"]
 gpu = ["ninja>=1.11", "tensorrt"]
 accelerated = ["ninja>=1.11", "tensorrt", "torch2trt-dynamic @ git+https://github.com/grimoire/torch2trt_dynamic.git@05c5fdce8db9a8ff74ebbecc5ae23c74a07b7016"]
 test = ["pytest>=7.0", "pytest-cov>=6.0"]
