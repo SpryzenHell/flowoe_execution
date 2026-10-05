@@ -17,3 +17,10 @@ jobs:
       - run: python -m pytest -q
       - run: python scripts/run_experiment.py --smoke --epochs 12
       - run: python scripts/run_analysis_suite.py --quick --output ci_analysis
+
+      - name: Upload analysis outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowoe-analysis-results
+          path: ci_analysis/
+          if-no-files-found: error
