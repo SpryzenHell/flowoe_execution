@@ -50,6 +50,5 @@ wandb/
 *.tar.gz
 
 # Keep documentation images in Git
-!main.png
 !docs/assets/*.svg
 !docs/assets/*.png
