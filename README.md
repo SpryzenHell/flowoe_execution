@@ -232,7 +232,7 @@ The suite writes CSV and PNG outputs under `docs/results/analysis/`. On CI, the 
 
 ![CI terminal](docs/assets/ci_run_84_terminal.svg)
 
-*Readable terminal snapshot from CI run #84. The underlying smoke values are synthetic.*
+*Readable terminal snapshot from CI run #136. The underlying smoke values are synthetic.*
 
 ### Analysis artifact
 
