@@ -101,7 +101,7 @@ python -m pytest -q
 
 The repository CI runs this command.
 
-The current code-affecting CI run completed successfully with all tests passing.
+The latest verified CI run (#136) passed compilation, the complete test suite, the smoke experiment, the analysis suite, and the analysis-artifact upload.
 
 ![CI verification output](docs/assets/ci_run_84_terminal.svg)
 
@@ -191,7 +191,7 @@ These numbers come from the repository's synthetic regression run. They are not 
 
 ## Extended experiment analysis
 
-The repository includes a separate analysis suite for model-development and execution-mechanics checks. It is synthetic-only and does not use or imply real market performance.
+The repository includes a separate analysis suite for model-development and execution-mechanics checks. It is synthetic-only and does not use or imply real market performance. The CI workflow runs the same suite and uploads the generated CSV/PNG bundle as a workflow artifact.
 
 Install the analysis dependencies:
 
@@ -234,7 +234,17 @@ The suite writes CSV and PNG outputs under `docs/results/analysis/`. On CI, the 
 
 *Readable terminal snapshot from CI run #84. The underlying smoke values are synthetic.*
 
-The full analysis command is intentionally separate from the normal smoke command so a clean checkout remains fast and predictable.
+### Analysis artifact
+
+Each CI analysis run produces:
+
+- CSV tables for regime statistics, seed robustness, schedule families, sampling steps, order sizes, depth, side, context length, and CFM/PF-ODE comparison.
+- PNG figures for the corresponding sensitivity and training diagnostics.
+- `analysis_report.json` with experiment coverage and runtime.
+
+The workflow stores these files as the `flowoe-analysis-full-results` artifact. This is the authoritative extended-analysis output for the CI run.
+
+The repository does not commit generated market-data or experiment-output directories.
 
 ## Execution model
 
