@@ -483,8 +483,7 @@ Market data and local experiment results are not stored in the repository.
 - [Getting started](docs/GETTING_STARTED.md)
 - [Real-data run](docs/REAL_DATA_RUN.md)
 - [Data sources](DATA_SOURCES.md)
-- [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 ## License
 
-See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+See [LICENSE](LICENSE).
