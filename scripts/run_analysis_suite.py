@@ -379,7 +379,7 @@ def main():
 
     side_rows = []
     for side in ["buy", "sell"]:
-        ev, _ = evaluate(cmf, x, book, trades, ntrain, steps=16, side=side)
+        ev, _ = evaluate(cfm, x, book, trades, ntrain, steps=16, side=side)
         side_rows.append({
             "side": side,
             "mean_flow_bps": ev.flow.mean(),
@@ -392,7 +392,7 @@ def main():
 
     context_rows = []
     for context_len in [16, 32, 64]:
-        ev, _ = evaluate(cmf, x, book, trades, ntrain, steps=16, context=context_len)
+        ev, _ = evaluate(cfm, x, book, trades, ntrain, steps=16, context=context_len)
         context_rows.append({
             "context_length": context_len,
             "mean_flow_bps": ev.flow.mean(),
