@@ -26,12 +26,19 @@ def main():
     ap.add_argument('--fi-max-rows', type=int, default=50000)
     ap.add_argument('--l2-max-rows', type=int, default=200000)
     ap.add_argument('--train-ratio', type=float, default=0.60)
+    ap.add_argument('--device', choices=['auto', 'cpu', 'cuda'], default='auto',
+                    help='Training/inference device. auto selects CUDA when available.')
     ap.add_argument('--allow-book-vwap', action='store_true', help='Allow the depth-weighted proxy for a real run (not a trade-VWAP evidence run).')
     ap.add_argument('--side', choices=['buy', 'sell'], default='buy')
     ap.add_argument('--quantity', type=float, default=1.0)
     ap.add_argument('--instrument', default='BTCUSDT')
     args = ap.parse_args()
     torch.manual_seed(7); np.random.seed(7)
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        raise SystemExit('--device cuda was requested, but CUDA is not available')
+    device = torch.device('cuda' if args.device == 'cuda' or (args.device == 'auto' and torch.cuda.is_available()) else 'cpu')
+    if device.type == 'cuda':
+        torch.cuda.manual_seed_all(7)
 
     if args.smoke or (args.fi is None and args.l2 is None):
         import subprocess
@@ -71,33 +78,35 @@ def main():
         # label vector attached to the final observation in the context.
         fi_labels.append(torch.tensor(fi.labels[i + ctx_n - 1], dtype=torch.long))
 
-
-    model = CFMPolicy(horizon=horizon)
-    opt = torch.optim.AdamW(model.parameters(), lr=2e-3, weight_decay=1e-4)
     torch.set_num_threads(2)
+    model = CFMPolicy(horizon=horizon).to(device)
+    opt = torch.optim.AdamW(model.parameters(), lr=2e-3, weight_decay=1e-4)
     model.train(); t0 = time.perf_counter()
     for ep in range(args.epochs):
         order = np.random.default_rng(ep).permutation(len(train_ctx))
         for j in range(0, len(order), 64):
             b = order[j:j+64]
-            c = torch.stack([train_ctx[k] for k in b]); y = torch.stack([train_y[k] for k in b])
+            c = torch.stack([train_ctx[k] for k in b]).to(device)
+            y = torch.stack([train_y[k] for k in b]).to(device)
             loss = model.cfm_loss(c, y, 'crypto')
             opt.zero_grad(); loss.backward(); torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step()
         if fi_ctx:
             idx = np.random.default_rng(ep + 1000).choice(len(fi_ctx), min(32, len(fi_ctx)), replace=False)
-            c = torch.stack([fi_ctx[k] for k in idx])
-            y = torch.stack([fi_labels[k] for k in idx])
+            c = torch.stack([fi_ctx[k] for k in idx]).to(device)
+            y = torch.stack([fi_labels[k] for k in idx]).to(device)
             loss = model.fi_aux_loss(c, y)
             opt.zero_grad(); loss.backward(); opt.step()
+    if device.type == 'cuda':
+        torch.cuda.synchronize(device)
     train_s = time.perf_counter() - t0
 
     sim = ExecutionSimulator(quantity=args.quantity, side=args.side); baseline, policy = [], []
     baseline_completion, policy_completion = [], []
     benchmark_name = 'trade_vwap' if trades is not None else 'book_vwap'
     for i in range(ntrain, len(l2.snapshots)-horizon, horizon*3):
-        ctx = x_crypto[i-ctx_n:i].unsqueeze(0)
+        ctx = x_crypto[i-ctx_n:i].unsqueeze(0).to(device)
         with torch.no_grad():
-            pred = model.sample(ctx, 'crypto', steps=24)[0].numpy()
+            pred = model.sample(ctx, 'crypto', steps=24)[0].detach().cpu().numpy()
         r_flow = sim.run(l2.snapshots.iloc[i:i+horizon], make_schedule_from_trajectory(pred), benchmark=benchmark_name, trades=trades, strategy='flowoe')
         r_twap = sim.run(l2.snapshots.iloc[i:i+horizon], np.ones(horizon)/horizon, benchmark=benchmark_name, trades=trades, strategy='twap')
         baseline.append(r_twap.slippage_bps); policy.append(r_flow.slippage_bps)
@@ -118,6 +127,7 @@ def main():
         'instrument': args.instrument,
         'side': args.side,
         'quantity': args.quantity,
+        'device': str(device),
         'context_length': ctx_n,
         'horizon': horizon,
         'sampling_steps': 24,
