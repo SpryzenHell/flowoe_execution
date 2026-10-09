@@ -53,7 +53,9 @@ def main():
 
     if args.smoke or (args.fi is None and args.l2 is None):
         import subprocess
-        subprocess.run(['python', str(ROOT / 'scripts/generate_smoke_data.py')], check=True)
+        # Use this same environment, so GPU runs do not fall back to the
+        # runner's system Python where numpy/pandas may not be installed.
+        subprocess.run([sys.executable, str(ROOT / 'scripts/generate_smoke_data.py')], check=True)
         fi_path = ROOT / 'data/smoke/fi2010_smoke.txt'
         l2_path = ROOT / 'data/smoke/crypto_l2.csv'
         trade_path = ROOT / 'data/smoke/crypto_trades.csv'
