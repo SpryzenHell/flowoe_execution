@@ -75,7 +75,7 @@ def test_trade_loader_rejects_missing_price_or_quantity(tmp_path):
 
 def test_bootstrap_statistics_and_improvement_are_deterministic():
     x = np.array([1.0, 1.5, 2.0, 2.5, 3.0])
-    mean, low, high = bootstrap_mean_ci(x, seed=19, n_boot=500)
+    mean, (low, high) = bootstrap_mean_ci(x, seed=19, n_boot=500)
     assert mean == pytest.approx(x.mean())
     assert low <= mean <= high
     stats = summary_stats(x, seed=19, n_boot=500)
