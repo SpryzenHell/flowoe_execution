@@ -89,6 +89,15 @@ def test_fi2010_row_major_file_is_capped(tmp_path):
     np.testing.assert_array_equal(data.features, raw[:5, :144])
 
 
+def test_fi2010_limit_larger_than_transposed_sample_count(tmp_path):
+    raw = np.arange(149 * 12, dtype=np.float32).reshape(149, 12)
+    path = tmp_path / "fi_short_wide.txt"
+    np.savetxt(path, raw)
+    data = load_fi2010(path, max_rows=50000)
+    assert data.features.shape == (12, 144)
+    np.testing.assert_array_equal(data.features, raw.T[:, :144])
+
+
 def test_fi2010_empty_file_is_rejected(tmp_path):
     path = tmp_path / "empty.txt"
     path.write_text("\\n", encoding="utf-8")
