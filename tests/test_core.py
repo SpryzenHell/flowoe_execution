@@ -78,6 +78,27 @@ def test_fi2010_row_limit_on_wide_transposed_file(tmp_path):
     assert data.labels.shape == (7, 5)
     np.testing.assert_array_equal(data.features, raw.T[:7, :144])
 
+
+def test_fi2010_row_major_file_is_capped(tmp_path):
+    raw = np.arange(31 * 149, dtype=np.float32).reshape(31, 149)
+    path = tmp_path / "fi_rows.txt"
+    np.savetxt(path, raw)
+    data = load_fi2010(path, max_rows=5)
+    assert data.features.shape == (5, 144)
+    assert data.labels.shape == (5, 5)
+    np.testing.assert_array_equal(data.features, raw[:5, :144])
+
+
+def test_fi2010_empty_file_is_rejected(tmp_path):
+    path = tmp_path / "empty.txt"
+    path.write_text("\\n", encoding="utf-8")
+    try:
+        load_fi2010(path)
+    except ValueError as exc:
+        assert "empty" in str(exc).lower()
+    else:
+        raise AssertionError("empty FI-2010 file must be rejected")
+
 def test_fixed_step_fused_path_matches_reference():
     from flowoe_execution.model import FixedStepCryptoSampler
 
