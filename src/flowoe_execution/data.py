@@ -16,9 +16,9 @@ class L2Data:
     trades: pd.DataFrame | None = None
 
 def load_fi2010(path: str | Path, max_rows: int | None = None) -> FI2010Data:
-    # FI-2010 files are commonly stored as 149 rows by millions of samples.
-    # np.loadtxt(max_rows=...) would limit feature rows, not sample columns, so
-    # detect the layout from the first line before deciding how to cap the load.
+    # The common layout is one sample per line (149 columns). Some mirrors
+    # store 149 feature/label rows and one sample per column; their first line
+    # is much wider. Detect the common layouts before applying a row limit.
     path = Path(path)
     first_width = 0
     with path.open("r", encoding="utf-8") as f:
@@ -29,16 +29,19 @@ def load_fi2010(path: str | Path, max_rows: int | None = None) -> FI2010Data:
     if first_width == 0:
         raise ValueError(f"FI-2010 file is empty: {path}")
 
+    row_major = 149 <= first_width <= 160
     kwargs = {"dtype": np.float32}
-    if max_rows is not None and first_width >= 149:
+    if max_rows is not None and row_major:
         kwargs["max_rows"] = int(max_rows)
     arr = np.loadtxt(path, **kwargs)
     if arr.ndim != 2:
         raise ValueError(f"Expected a 2-D FI-2010 matrix, got {arr.shape}")
     if arr.shape[1] < 149 and arr.shape[0] >= 149:
         arr = arr.T
-        if max_rows is not None:
-            arr = arr[:int(max_rows)]
+    elif not row_major and arr.shape[0] >= 149:
+        arr = arr.T
+    if max_rows is not None and not row_major:
+        arr = arr[:int(max_rows)]
     if arr.shape[1] < 149:
         raise ValueError(f"Expected at least 149 columns (144 features + 5 labels), got {arr.shape}")
     return FI2010Data(
