@@ -5,7 +5,7 @@ import pytest
 
 from flowoe_execution.data import load_l2_csv, load_l2_jsonl, load_trades_csv
 from flowoe_execution.execution import ExecutionSimulator, book_vwap, market_vwap
-from flowoe_execution.metrics import bootstrap_mean_ci, improvement_bps, percentile_ms, summary_stats
+from flowoe_execution.metrics import bootstrap_mean_ci, improvement_bps, paired_block_bootstrap_ci, percentile_ms, summary_stats
 
 
 def make_book(ts=1790000000000):
@@ -85,6 +85,23 @@ def test_bootstrap_statistics_and_improvement_are_deterministic():
     assert stats["ci95"] == pytest.approx((low, high))
     assert improvement_bps(2.5, 1.75) == pytest.approx(0.75)
     assert percentile_ms([1, 2, 3, 4], q=50) == pytest.approx(2.5)
+
+
+def test_paired_block_bootstrap_reports_improvement_with_repeatable_ci():
+    baseline = np.array([2.0, 2.1, 2.2, 2.3, 2.4, 2.2, 2.1, 2.3, 2.5, 2.4])
+    policy = baseline - 0.5
+    mean, ci = paired_block_bootstrap_ci(baseline, policy, seed=23, n_boot=500, block_size=3)
+    mean2, ci2 = paired_block_bootstrap_ci(baseline, policy, seed=23, n_boot=500, block_size=3)
+    assert mean == pytest.approx(0.5)
+    assert ci[0] <= mean <= ci[1]
+    assert (mean, ci) == (mean2, ci2)
+
+
+def test_paired_block_bootstrap_rejects_unpaired_or_nonfinite_samples():
+    with pytest.raises(ValueError, match="equal length"):
+        paired_block_bootstrap_ci([1, 2], [1])
+    with pytest.raises(ValueError, match="finite"):
+        paired_block_bootstrap_ci([1, np.nan], [0, 1])
 
 
 @pytest.mark.parametrize("bad", [[], [float("nan")], [float("inf")]])
