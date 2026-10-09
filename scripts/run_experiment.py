@@ -33,6 +33,14 @@ def main():
     ap.add_argument('--quantity', type=float, default=1.0)
     ap.add_argument('--instrument', default='BTCUSDT')
     args = ap.parse_args()
+    if args.epochs < 1:
+        ap.error('--epochs must be positive')
+    if not 0.1 <= args.train_ratio <= 0.9:
+        ap.error('--train-ratio must be between 0.1 and 0.9')
+    if args.quantity <= 0:
+        ap.error('--quantity must be positive')
+    if args.fi_max_rows < 1 or args.l2_max_rows < 1:
+        ap.error('row limits must be positive')
     torch.manual_seed(7); np.random.seed(7)
     if args.device == 'cuda' and not torch.cuda.is_available():
         raise SystemExit('--device cuda was requested, but CUDA is not available')
@@ -62,13 +70,24 @@ def main():
     x_crypto = torch.from_numpy(l2_features(l2.snapshots))
     ntrain = int(len(l2.snapshots) * args.train_ratio)
     ctx_n, horizon, stride = 32, 8, 8
+    if len(l2.snapshots) <= ctx_n + horizon + 1:
+        raise SystemExit(f'Need more than {ctx_n + horizon + 1} L2 rows; found {len(l2.snapshots)}')
+    if not torch.isfinite(x_crypto).all():
+        raise SystemExit('L2 feature builder returned non-finite values')
+    ntrain = max(ntrain, ctx_n + horizon + 1)
+    if ntrain >= len(l2.snapshots) - horizon:
+        raise SystemExit('Chronological split leaves no evaluation windows')
     train_ctx, train_y = [], []
     mids = ((l2.snapshots.bid0 + l2.snapshots.ask0) / 2).to_numpy(np.float32)
     for i in range(0, ntrain - ctx_n - horizon, stride):
         train_ctx.append(x_crypto[i:i+ctx_n])
         train_y.append(torch.tensor(expert(mids[i+ctx_n:i+ctx_n+horizon], horizon), dtype=torch.float32))
 
+    if not len(train_ctx):
+        raise SystemExit('Chronological training split produced no crypto training windows')
     fi_x = torch.from_numpy(features_from_fi2010(fi.features))
+    if not torch.isfinite(fi_x).all():
+        raise SystemExit('FI-2010 feature conversion returned non-finite values')
     fi_ctx = []
     fi_labels = []
     fi_ntrain = int(len(fi.features) * args.train_ratio)
@@ -112,6 +131,8 @@ def main():
         baseline.append(r_twap.slippage_bps); policy.append(r_flow.slippage_bps)
         baseline_completion.append(r_twap.completion); policy_completion.append(r_flow.completion)
 
+    if not baseline or not policy:
+        raise SystemExit('Evaluation split produced no execution episodes; use a longer L2 window')
     twap_stats = summary_stats(baseline)
     flow_stats = summary_stats(policy)
 
