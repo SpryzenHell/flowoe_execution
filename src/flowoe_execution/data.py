@@ -35,7 +35,7 @@ def load_fi2010(path: str | Path, max_rows: int | None = None) -> FI2010Data:
         if row_major:
             kwargs["max_rows"] = int(max_rows)
         else:
-            kwargs["usecols"] = range(int(max_rows))
+            kwargs["usecols"] = range(min(int(max_rows), first_width))
     arr = np.loadtxt(path, **kwargs)
     if arr.ndim != 2:
         raise ValueError(f"Expected a 2-D FI-2010 matrix, got {arr.shape}")
