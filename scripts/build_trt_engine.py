@@ -13,9 +13,14 @@ from flowoe_execution.model import CFMPolicy, FixedStepCryptoSampler
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def calibration_contexts(context, x, count=32):
-    """Use real book feature windows where available; fall back to smoke data."""
-    for name in ("data/real/crypto/BTCUSDT_l2.csv", "data/smoke/crypto_l2.csv"):
+def calibration_contexts(context, x, count=32, prefer_real=False):
+    """Use data that matches the checkpoint where available."""
+    names = (
+        ("data/real/crypto/BTCUSDT_l2.csv", "data/smoke/crypto_l2.csv")
+        if prefer_real else
+        ("data/smoke/crypto_l2.csv", "data/real/crypto/BTCUSDT_l2.csv")
+    )
+    for name in names:
         path = ROOT / name
         if not path.exists():
             continue
@@ -67,7 +72,9 @@ def main():
     wrapper = FixedStepCryptoSampler(policy, args.steps).cuda().eval()
     context = torch.zeros(1, 32, 45, device="cuda")
     x = torch.zeros(1, 8, device="cuda")
-    calibration, calibration_source = calibration_contexts(context, x, args.calibration_size)
+    calibration, calibration_source = calibration_contexts(
+        context, x, args.calibration_size, prefer_real=checkpoint.name == "cfm_policy.pt"
+    )
 
     cfg = BuildEngineConfig(
         shape_ranges={
