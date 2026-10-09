@@ -100,7 +100,7 @@ def test_fi2010_limit_larger_than_transposed_sample_count(tmp_path):
 
 def test_fi2010_empty_file_is_rejected(tmp_path):
     path = tmp_path / "empty.txt"
-    path.write_text("\\n", encoding="utf-8")
+    path.write_text("", encoding="utf-8")
     try:
         load_fi2010(path)
     except ValueError as exc:
