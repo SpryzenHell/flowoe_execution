@@ -68,6 +68,16 @@ def test_fi2010_row_limit_applies_after_transpose(tmp_path):
     assert data.labels.shape == (3, 5)
     np.testing.assert_array_equal(data.features, raw.T[:3, :144])
 
+
+def test_fi2010_row_limit_on_wide_transposed_file(tmp_path):
+    raw = np.arange(149 * 180, dtype=np.float32).reshape(149, 180)
+    path = tmp_path / "fi_wide.txt"
+    np.savetxt(path, raw)
+    data = load_fi2010(path, max_rows=7)
+    assert data.features.shape == (7, 144)
+    assert data.labels.shape == (7, 5)
+    np.testing.assert_array_equal(data.features, raw.T[:7, :144])
+
 def test_fixed_step_fused_path_matches_reference():
     from flowoe_execution.model import FixedStepCryptoSampler
 
