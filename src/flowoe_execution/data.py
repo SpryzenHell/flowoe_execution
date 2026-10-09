@@ -16,9 +16,9 @@ class L2Data:
     trades: pd.DataFrame | None = None
 
 def load_fi2010(path: str | Path, max_rows: int | None = None) -> FI2010Data:
-    # The common layout is one sample per line (149 columns). Some mirrors
-    # store 149 feature/label rows and one sample per column; their first line
-    # is much wider. Detect the common layouts before applying a row limit.
+    # FI-2010 usually has one sample per line (149 columns). Some copies
+    # store 149 rows, with each column representing one sample. For that
+    # layout, usecols limits the sample count without loading the full file.
     path = Path(path)
     first_width = 0
     with path.open("r", encoding="utf-8") as f:
@@ -29,21 +29,27 @@ def load_fi2010(path: str | Path, max_rows: int | None = None) -> FI2010Data:
     if first_width == 0:
         raise ValueError(f"FI-2010 file is empty: {path}")
 
-    row_major = 149 <= first_width <= 160
+    row_major = first_width == 149
     kwargs = {"dtype": np.float32}
-    if max_rows is not None and row_major:
-        kwargs["max_rows"] = int(max_rows)
+    if max_rows is not None:
+        if row_major:
+            kwargs["max_rows"] = int(max_rows)
+        else:
+            kwargs["usecols"] = range(int(max_rows))
     arr = np.loadtxt(path, **kwargs)
     if arr.ndim != 2:
         raise ValueError(f"Expected a 2-D FI-2010 matrix, got {arr.shape}")
-    if arr.shape[1] < 149 and arr.shape[0] >= 149:
+    if row_major:
+        if arr.shape[1] < 149:
+            raise ValueError(f"Expected at least 149 columns (144 features + 5 labels), got {arr.shape}")
+    else:
+        if arr.shape[0] < 149:
+            raise ValueError(f"Expected at least 149 rows (144 features + 5 labels), got {arr.shape}")
         arr = arr.T
-    elif not row_major and arr.shape[0] >= 149:
-        arr = arr.T
-    if max_rows is not None and not row_major:
-        arr = arr[:int(max_rows)]
     if arr.shape[1] < 149:
         raise ValueError(f"Expected at least 149 columns (144 features + 5 labels), got {arr.shape}")
+    if max_rows is not None:
+        arr = arr[:int(max_rows)]
     return FI2010Data(
         features=arr[:, :144].astype(np.float32, copy=False),
         labels=arr[:, 144:149].astype(np.int16, copy=False),
