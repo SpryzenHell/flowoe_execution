@@ -6,13 +6,16 @@ from flowoe_execution.data import load_fi2010, load_l2_csv, load_trades_csv
 from flowoe_execution.features import l2_features, features_from_fi2010
 from flowoe_execution.model import CFMPolicy
 from flowoe_execution.execution import ExecutionSimulator, make_schedule_from_trajectory
-from flowoe_execution.metrics import improvement_bps, summary_stats
+from flowoe_execution.metrics import improvement_bps, paired_block_bootstrap_ci, summary_stats
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def expert(mid_future, horizon):
-    z = -(mid_future[:horizon] - np.min(mid_future[:horizon])) / (np.std(mid_future[:horizon]) + 1e-6)
+def expert(mid_future, horizon, side='buy'):
+    future = np.asarray(mid_future[:horizon], dtype=np.float64)
+    centered = (future - future.mean()) / (future.std() + 1e-6)
+    # Buy more when future prices are lower; sell more when they are higher.
+    z = -centered if side == 'buy' else centered
     return make_schedule_from_trajectory(z)
 
 
@@ -81,7 +84,7 @@ def main():
     mids = ((l2.snapshots.bid0 + l2.snapshots.ask0) / 2).to_numpy(np.float32)
     for i in range(0, ntrain - ctx_n - horizon, stride):
         train_ctx.append(x_crypto[i:i+ctx_n])
-        train_y.append(torch.tensor(expert(mids[i+ctx_n:i+ctx_n+horizon], horizon), dtype=torch.float32))
+        train_y.append(torch.tensor(expert(mids[i+ctx_n:i+ctx_n+horizon], horizon, args.side), dtype=torch.float32))
 
     if not len(train_ctx):
         raise SystemExit('Chronological training split produced no crypto training windows')
@@ -135,6 +138,9 @@ def main():
         raise SystemExit('Evaluation split produced no execution episodes; use a longer L2 window')
     twap_stats = summary_stats(baseline)
     flow_stats = summary_stats(policy)
+    paired_improvement, paired_ci95 = paired_block_bootstrap_ci(
+        baseline, policy, seed=7, n_boot=2000, alpha=0.05, block_size=5
+    )
 
     def file_sha256(path):
         h = hashlib.sha256()
@@ -171,6 +177,9 @@ def main():
         'flowoe_completion_mean': float(np.mean(policy_completion)) if policy_completion else None,
         'benchmark': benchmark_name,
         'improvement_vs_twap_bps': improvement_bps(twap_stats['mean'], flow_stats['mean']),
+        'paired_improvement_vs_twap_bps': paired_improvement,
+        'paired_improvement_ci95_bps': paired_ci95,
+        'paired_ci_method': 'paired moving-block bootstrap on consecutive execution windows (block size 5)',
         'note': 'Synthetic smoke data only; not FI-2010 or real crypto L2.' if dataset_name.startswith('synthetic') else ('User-supplied real data with trade VWAP.' if trades is not None else 'User-supplied real data with book-VWAP proxy; not the resume evidence benchmark.')
     }
     out = ROOT / 'results'; out.mkdir(exist_ok=True)
