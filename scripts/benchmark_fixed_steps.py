@@ -73,7 +73,7 @@ def rk4_schedule(model, context, x0, steps=64):
 
 
 def select_inputs(batch, context_len, checkpoint_arg):
-    real_l2 = ROOT / "data/real/crypto/BTCUSDT_l2.csv"
+    real_l2_files = sorted((ROOT / "data/real/crypto").glob("*_l2.csv"))
     smoke_l2 = ROOT / "data/smoke/crypto_l2.csv"
     real_ckpt = ROOT / "results/cfm_policy.pt"
     smoke_ckpt = ROOT / "results/cfm_policy_smoke.pt"
@@ -83,10 +83,14 @@ def select_inputs(batch, context_len, checkpoint_arg):
             checkpoint = ROOT / checkpoint
         if not checkpoint.exists():
             raise SystemExit(f"Checkpoint not found: {checkpoint}")
-        l2_path = real_l2 if checkpoint.name == "cfm_policy.pt" and real_l2.exists() else smoke_l2
-        source = "real BTCUSDT L2" if l2_path == real_l2 else "synthetic smoke L2"
-    elif real_l2.exists() and real_ckpt.exists():
-        l2_path, checkpoint, source = real_l2, real_ckpt, "real BTCUSDT L2"
+        if checkpoint.name == "cfm_policy.pt" and real_l2_files:
+            l2_path = real_l2_files[0]
+            source = f"real crypto L2 ({l2_path.stem})"
+        else:
+            l2_path, source = smoke_l2, "synthetic smoke L2"
+    elif real_l2_files and real_ckpt.exists():
+        l2_path, checkpoint = real_l2_files[0], real_ckpt
+        source = f"real crypto L2 ({l2_path.stem})"
     elif smoke_l2.exists() and smoke_ckpt.exists():
         l2_path, checkpoint, source = smoke_l2, smoke_ckpt, "synthetic smoke L2"
     else:
