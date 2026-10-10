@@ -276,15 +276,17 @@ FI-2010 is used as an auxiliary market-microstructure task. It is not an executi
 
 A real run needs:
 
-1. FI-2010 NoAuction ZScore data;
-2. matching top-10 L2 snapshots;
-3. matching trade prints.
+1. An FI-2010 file with 144 features and five horizon labels. The NoAuction ZScore and DecPre variants are distinct files; record the exact variant used and never relabel one as the other.
+2. Matching top-10 L2 snapshots.
+3. Matching trade prints covering the execution windows.
 
 ### Validate the data
 
+Use the exact FI-2010 filename that was downloaded. For example, this command uses the DecPre training file that was validated in A100 research run #27:
+
 ```bash
 python scripts/validate_real_data.py \
-  --fi data/real/fi2010/Train_Dst_NoAuction_ZScore_CF_7.txt \
+  --fi data/real/fi2010/Train_Dst_NoAuction_DecPre_CF_7.txt \
   --l2 data/real/crypto/BTCUSDT_l2.csv \
   --trades data/real/crypto/BTCUSDT_trades.csv
 ```
@@ -308,7 +310,7 @@ results/data_quality.json
 
 ```bash
 python scripts/run_experiment.py \
-  --fi data/real/fi2010/Train_Dst_NoAuction_ZScore_CF_7.txt \
+  --fi data/real/fi2010/Train_Dst_NoAuction_DecPre_CF_7.txt \
   --l2 data/real/crypto/BTCUSDT_l2.csv \
   --trades data/real/crypto/BTCUSDT_trades.csv \
   --epochs 120
@@ -455,7 +457,7 @@ Official dataset metadata:
 
 https://etsin.fairdata.fi/dataset/73eb48d7-4dbc-4a10-a52a-da745b47a649
 
-The expected files are:
+Common NoAuction ZScore filenames are:
 
 ```text
 Train_Dst_NoAuction_ZScore_CF_7.txt
@@ -463,6 +465,12 @@ Test_Dst_NoAuction_ZScore_CF_7.txt
 Test_Dst_NoAuction_ZScore_CF_8.txt
 Test_Dst_NoAuction_ZScore_CF_9.txt
 ```
+
+The validated A100 research run also used the distinct
+`Train_Dst_NoAuction_DecPre_CF_7.txt` variant. Its report records the
+actual variant, size, and SHA-256. DecPre must not be described as ZScore;
+pass the exact filename to the validator and retain its provenance in the
+result report.
 
 ### Binance
 
