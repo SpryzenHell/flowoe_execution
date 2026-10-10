@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import torch
+import pytest
 
 from flowoe_execution.data import load_fi2010
 from flowoe_execution.execution import ExecutionSimulator
@@ -133,8 +134,16 @@ def test_fi_auxiliary_updates_shared_temporal_encoder():
     c = torch.randn(4, 16, 144)
     labels = torch.randint(0, 3, (4, 5))
     m.zero_grad()
-    loss = m.fi_aux_loss(c, labels)
+    loss = m.fi_aux_loss(c, labels, label_encoding="zero_one_two")
     loss.backward()
     grads = [p.grad for p in m.context.temporal.parameters() if p.requires_grad]
     assert grads and all(g is not None for g in grads)
     assert any(torch.isfinite(g).all() and g.abs().sum() > 0 for g in grads)
+
+
+def test_fi_auxiliary_auto_rejects_ambiguous_minibatch_labels():
+    m = CFMPolicy(8)
+    c = torch.randn(2, 16, 144)
+    labels = torch.tensor([[1, 2, 1, 2, 1], [2, 1, 2, 1, 2]])
+    with pytest.raises(ValueError, match="Cannot infer FI-2010 label encoding"):
+        m.fi_aux_loss(c, labels)
