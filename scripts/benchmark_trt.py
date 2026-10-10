@@ -20,7 +20,6 @@ def accuracy_gate(max_abs_error: float, max_allowed_error: float) -> dict:
     return {
         "status": "passed" if passed else "failed_accuracy",
         "accuracy_gate_passed": passed,
-        "latency_claim_allowed": passed,
         "max_abs_output_error": float(max_abs_error),
         "max_allowed_error": float(max_allowed_error),
     }
@@ -137,6 +136,20 @@ def main():
             "max_abs_output_error": error,
         })
 
+    batch1 = next((case for case in cases if case["batch"] == 1), None)
+    batch1_p99_wall = (
+        float(batch1["tensorrt_int8"]["end_to_end_wall_ms"]["p99_ms"])
+        if batch1 is not None else None
+    )
+    batch1_p99_gpu = (
+        float(batch1["tensorrt_int8"]["cuda_event_ms"]["p99_ms"])
+        if batch1 is not None else None
+    )
+    accuracy_passed = max_seen_error <= args.max_error
+    target_met = bool(
+        accuracy_passed and batch1_p99_wall is not None and batch1_p99_wall < 2.0
+    )
+
     result = {
         "gpu": torch.cuda.get_device_name(0),
         "gpu_capability": list(torch.cuda.get_device_capability(0)),
@@ -151,6 +164,11 @@ def main():
         "warmup": args.warmup,
         **accuracy_gate(max_seen_error, args.max_error),
         "cases": cases,
+        "latency_target_p99_ms": 2.0,
+        "batch1_p99_end_to_end_wall_ms": batch1_p99_wall,
+        "batch1_p99_cuda_event_ms": batch1_p99_gpu,
+        "sub_2ms_batch1_p99_target_met": target_met,
+        "latency_claim_allowed": target_met,
     }
     out = Path(args.output)
     if not out.is_absolute():
