@@ -73,6 +73,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--smoke', action='store_true')
     ap.add_argument('--epochs', type=int, default=120)
+    ap.add_argument('--seed', type=int, default=7, help='Random seed for initialization, training order and sampling.')
+    ap.add_argument('--report-out', help='Optional path for the JSON report; defaults to results/real_experiment.json or smoke_experiment.json.')
+    ap.add_argument('--checkpoint-out', help='Optional path for the trained checkpoint; defaults to results/cfm_policy.pt or cfm_policy_smoke.pt.')
     ap.add_argument('--fi')
     ap.add_argument('--l2')
     ap.add_argument('--trades')
@@ -104,12 +107,12 @@ def main():
         ap.error(str(exc))
     if args.fi_max_rows < 1 or args.l2_max_rows < 1:
         ap.error('row limits must be positive')
-    torch.manual_seed(7); np.random.seed(7)
+    torch.manual_seed(args.seed); np.random.seed(args.seed)
     if args.device == 'cuda' and not torch.cuda.is_available():
         raise SystemExit('--device cuda was requested, but CUDA is not available')
     device = torch.device('cuda' if args.device == 'cuda' or (args.device == 'auto' and torch.cuda.is_available()) else 'cpu')
     if device.type == 'cuda':
-        torch.cuda.manual_seed_all(7)
+        torch.cuda.manual_seed_all(args.seed)
 
     if args.smoke or (args.fi is None and args.l2 is None):
         import subprocess
@@ -164,7 +167,7 @@ def main():
     opt = torch.optim.AdamW(model.parameters(), lr=2e-3, weight_decay=1e-4)
     model.train(); t0 = time.perf_counter()
     for ep in range(args.epochs):
-        order = np.random.default_rng(ep).permutation(len(train_ctx))
+        order = np.random.default_rng(args.seed + ep).permutation(len(train_ctx))
         for j in range(0, len(order), 64):
             b = order[j:j+64]
             c = torch.stack([train_ctx[k] for k in b]).to(device)
@@ -172,7 +175,7 @@ def main():
             loss = model.cfm_loss(c, y, 'crypto')
             opt.zero_grad(); loss.backward(); torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0); opt.step()
         if fi_ctx:
-            idx = np.random.default_rng(ep + 1000).choice(len(fi_ctx), min(32, len(fi_ctx)), replace=False)
+            idx = np.random.default_rng(args.seed + ep + 1000).choice(len(fi_ctx), min(32, len(fi_ctx)), replace=False)
             c = torch.stack([fi_ctx[k] for k in idx]).to(device)
             y = torch.stack([fi_targets[k] for k in idx]).to(device)
             loss = model.fi_aux_loss(c, y, label_encoding='zero_one_two')
@@ -236,6 +239,7 @@ def main():
         'sampling_steps': sampling_steps,
         'sampling_updates': sampling_steps - 1 if args.sampler != 'rk4' else sampling_steps,
         'train_ratio': args.train_ratio,
+        'seed': args.seed,
         'python_version': sys.version.split()[0],
         'platform': platform.platform(),
         'torch_version': torch.__version__,
@@ -261,8 +265,20 @@ def main():
         'note': 'Synthetic smoke data only; not FI-2010 or real crypto L2.' if dataset_name.startswith('synthetic') else ('User-supplied real data with trade VWAP.' if trades is not None else 'User-supplied real data with book-VWAP proxy; not the resume evidence benchmark.')
     }
     out = ROOT / 'results'; out.mkdir(exist_ok=True)
-    torch.save(model.state_dict(), out / ('cfm_policy_smoke.pt' if dataset_name.startswith('synthetic') else 'cfm_policy.pt'))
-    (out / ('smoke_experiment.json' if dataset_name.startswith('synthetic') else 'real_experiment.json')).write_text(json.dumps(report, indent=2))
+    default_checkpoint = out / ('cfm_policy_smoke.pt' if dataset_name.startswith('synthetic') else 'cfm_policy.pt')
+    default_report = out / ('smoke_experiment.json' if dataset_name.startswith('synthetic') else 'real_experiment.json')
+    checkpoint_path = Path(args.checkpoint_out) if args.checkpoint_out else default_checkpoint
+    report_path = Path(args.report_out) if args.report_out else default_report
+    if not checkpoint_path.is_absolute():
+        checkpoint_path = ROOT / checkpoint_path
+    if not report_path.is_absolute():
+        report_path = ROOT / report_path
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(model.state_dict(), checkpoint_path)
+    report['checkpoint_path'] = str(checkpoint_path)
+    report['report_path'] = str(report_path)
+    report_path.write_text(json.dumps(report, indent=2))
     print(json.dumps(report, indent=2))
 
 
