@@ -3,7 +3,7 @@ import torch
 import pytest
 
 from scripts.run_experiment import expert, fi_training_windows
-from scripts.evaluate_execution_grid import compare_schedules
+from scripts.evaluate_execution_grid import compare_schedules, summarize_paired_method
 
 
 def test_fi_training_windows_keep_all_label_horizons_inside_training_split():
@@ -44,3 +44,25 @@ def test_schedule_comparison_rejects_shape_mismatch_and_nonfinite_values():
         compare_schedules(torch.ones(1, 3), torch.ones(1, 4))
     with pytest.raises(ValueError, match="finite"):
         compare_schedules(torch.tensor([[1.0, float("nan")]]), torch.ones(1, 2))
+
+
+
+def test_paired_method_summary_accepts_only_completed_episode_pairs():
+    baseline = [2.0, 2.5, 2.2]
+    slippage = [1.8, 2.4, 2.0]
+    completion = [1.0, 0.9, 1.0]
+    errors = [
+        {"mean_abs_error": 0.0, "max_abs_error": 0.0, "mean_kl_reference_to_candidate": 0.0}
+        for _ in baseline
+    ]
+    result = summarize_paired_method(baseline, slippage, completion, errors, seed=11)
+    assert result["episodes"] == 3
+    assert result["baseline_episodes"] == 3
+    assert result["improvement_vs_twap_bps"] == pytest.approx(0.1666666667)
+    assert result["paired_improvement_ci95_bps"][0] <= result["paired_improvement_vs_twap_bps"]
+
+
+def test_paired_method_summary_rejects_partial_baseline_alignment():
+    errors = [{"mean_abs_error": 0.0, "max_abs_error": 0.0, "mean_kl_reference_to_candidate": 0.0}]
+    with pytest.raises(ValueError, match="same episodes"):
+        summarize_paired_method([2.0, 2.1], [1.8], [1.0], errors)
