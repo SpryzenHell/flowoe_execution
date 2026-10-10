@@ -210,7 +210,9 @@ class FixedStepCryptoSampler(nn.Module):
         ctx = self.context.crypto_encode(context)
         dt = 1.0 / float(self.steps - 1)
         for i in range(self.steps - 1):
-            t = x.new_full((x.shape[0],), float(i) * dt)
+            # full_like preserves the dynamic batch dimension and is directly
+            # supported by torch2trt_dynamic; Tensor.new_full is not.
+            t = torch.full_like(x[:, 0], float(i) * dt)
             v = self.vf(t, x, ctx)
             if self.fused_step is None:
                 x = x + dt * v
