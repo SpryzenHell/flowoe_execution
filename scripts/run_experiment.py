@@ -7,6 +7,7 @@ from flowoe_execution.features import l2_features, features_from_fi2010
 from flowoe_execution.model import CFMPolicy
 from flowoe_execution.execution import ExecutionSimulator, make_schedule_from_trajectory
 from flowoe_execution.metrics import improvement_bps, paired_block_bootstrap_ci, summary_stats
+from flowoe_execution.labels import normalize_fi2010_labels
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -49,6 +50,8 @@ def main():
     ap.add_argument('--l2')
     ap.add_argument('--trades')
     ap.add_argument('--fi-max-rows', type=int, default=50000)
+    ap.add_argument('--fi-label-encoding', choices=['auto', 'zero_one_two', 'minus1_0_1', 'one_two_three'], default='auto',
+                    help='FI-2010 label encoding; auto rejects ambiguous observed subsets')
     ap.add_argument('--l2-max-rows', type=int, default=200000)
     ap.add_argument('--train-ratio', type=float, default=0.60)
     ap.add_argument('--device', choices=['auto', 'cpu', 'cuda'], default='auto',
@@ -94,6 +97,7 @@ def main():
     l2 = load_l2_csv(l2_path, max_rows=args.l2_max_rows)
     trades = load_trades_csv(trade_path) if trade_path else None
     fi = load_fi2010(fi_path, max_rows=args.fi_max_rows)
+    fi_labels, fi_label_encoding = normalize_fi2010_labels(fi.labels, args.fi_label_encoding)
     x_crypto = torch.from_numpy(l2_features(l2.snapshots))
     ntrain = int(len(l2.snapshots) * args.train_ratio)
     ctx_n, horizon, stride = 32, 8, 8
@@ -115,8 +119,8 @@ def main():
     fi_x = torch.from_numpy(features_from_fi2010(fi.features))
     if not torch.isfinite(fi_x).all():
         raise SystemExit('FI-2010 feature conversion returned non-finite values')
-    fi_ctx, fi_labels = fi_training_windows(
-        fi_x, fi.labels, args.train_ratio, context_len=ctx_n, stride=stride,
+    fi_ctx, fi_targets = fi_training_windows(
+        fi_x, fi_labels, args.train_ratio, context_len=ctx_n, stride=stride,
         max_label_horizon=10,
     )
 
@@ -135,8 +139,8 @@ def main():
         if fi_ctx:
             idx = np.random.default_rng(ep + 1000).choice(len(fi_ctx), min(32, len(fi_ctx)), replace=False)
             c = torch.stack([fi_ctx[k] for k in idx]).to(device)
-            y = torch.stack([fi_labels[k] for k in idx]).to(device)
-            loss = model.fi_aux_loss(c, y)
+            y = torch.stack([fi_targets[k] for k in idx]).to(device)
+            loss = model.fi_aux_loss(c, y, label_encoding='zero_one_two')
             opt.zero_grad(); loss.backward(); opt.step()
     if device.type == 'cuda':
         torch.cuda.synchronize(device)
@@ -190,6 +194,7 @@ def main():
         'trades_path': str(trade_path) if trade_path else None,
         'trades_sha256': file_sha256(trade_path) if trade_path else None,
         'train_windows': len(train_ctx), 'fi_windows': len(fi_ctx),
+        'fi_label_encoding_detected': fi_label_encoding,
         'epochs': args.epochs, 'training_seconds': train_s, 'episodes': len(policy),
         'twap_slippage_bps': twap_stats,
         'flowoe_slippage_bps': flow_stats,
