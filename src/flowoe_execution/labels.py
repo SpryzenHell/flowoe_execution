@@ -38,7 +38,7 @@ def normalize_fi2010_labels(
             selected = "minus1_0_1"
         elif high == 3:
             selected = "one_two_three"
-        elif low == 0 and high <= 2:
+        elif low == 0 and high == 2:
             selected = "zero_one_two"
         else:
             raise ValueError(
