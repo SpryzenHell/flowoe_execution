@@ -83,7 +83,7 @@ class ExecutionSimulator:
         if len(snapshots) < len(fractions):
             raise ValueError("Not enough snapshots for requested horizon")
 
-        f = np.asarray(fractions, dtype=np.float64)
+        f = np.array(fractions, dtype=np.float64, copy=True)
         if f.ndim != 1 or len(f) == 0 or not np.isfinite(f).all() or np.any(f < 0):
             raise ValueError("fractions must be a finite non-negative 1-D array")
         total = float(f.sum())

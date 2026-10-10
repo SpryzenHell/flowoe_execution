@@ -192,3 +192,44 @@ def test_vwap_helpers_return_finite_values():
     )
     assert np.isfinite(book_vwap(book, book.timestamp.iloc[0], book.timestamp.iloc[-1]))
     assert np.isfinite(market_vwap(trades, trades.timestamp.iloc[0], trades.timestamp.iloc[-1]))
+
+
+def test_market_vwap_uses_only_the_inclusive_execution_window():
+    book = sample_l2(n=8)
+    start, end = book.timestamp.iloc[0], book.timestamp.iloc[-1]
+    trades = pd.DataFrame({
+        "timestamp": [start - pd.Timedelta(seconds=1), *book.timestamp.tolist(), end + pd.Timedelta(seconds=1)],
+        "price": [1000.0, *([100.0] * len(book)), 1.0],
+        "qty": [1e6, *([1.0] * len(book)), 1e6],
+    })
+    assert market_vwap(trades, start, end) == pytest.approx(100.0)
+
+
+def test_execution_slippage_sign_is_correct_for_buy_and_sell():
+    book = sample_l2(n=8)
+    trades = pd.DataFrame({
+        "timestamp": book.timestamp,
+        "price": 100.0,
+        "qty": 1.0,
+    })
+    schedule = np.array([1.0] + [0.0] * 7)
+    buy = ExecutionSimulator(quantity=1.0, side="buy").run(
+        book, schedule, benchmark="trade_vwap", trades=trades,
+    )
+    sell = ExecutionSimulator(quantity=1.0, side="sell").run(
+        book, schedule, benchmark="trade_vwap", trades=trades,
+    )
+    assert buy.benchmark_vwap == pytest.approx(100.0)
+    assert sell.benchmark_vwap == pytest.approx(100.0)
+    assert buy.slippage_bps == pytest.approx(2.0)
+    assert sell.slippage_bps == pytest.approx(1.0)
+
+
+def test_execution_does_not_mutate_caller_schedule():
+    book = sample_l2(n=8)
+    schedule = np.array([2.0] + [0.0] * 7, dtype=np.float64)
+    original = schedule.copy()
+    ExecutionSimulator(quantity=1.0).run(
+        book, schedule, benchmark="book_vwap",
+    )
+    np.testing.assert_array_equal(schedule, original)
