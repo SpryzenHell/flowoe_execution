@@ -47,6 +47,22 @@ def calibration_contexts(context, x, count=32, prefer_real=False):
     ], "random fallback (no valid L2 inputs found)"
 
 
+def register_selu_converter():
+    """Register the exact PyTorch SELU parameters with TensorRT's native SELU layer."""
+    import tensorrt as trt
+    from torch2trt_dynamic.torch2trt_dynamic import get_arg, tensorrt_converter, trt_
+
+    @tensorrt_converter("torch.nn.functional.selu")
+    def convert_selu(ctx):
+        value = get_arg(ctx, "input", pos=0, default=None)
+        layer = ctx.network.add_activation(
+            trt_(ctx.network, value), trt.ActivationType.SELU
+        )
+        layer.alpha = 1.6732632423543772
+        layer.beta = 1.0507009873554805
+        ctx.method_return._trt = layer.get_output(0)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--checkpoint", default="results/cfm_policy_smoke.pt")
@@ -61,6 +77,7 @@ def main():
     try:
         import tensorrt as trt
         from torch2trt_dynamic import module2trt, BuildEngineConfig, SequenceDataset
+        register_selu_converter()
     except Exception as exc:
         raise SystemExit(f"TensorRT or torch2trt_dynamic is unavailable: {exc}")
 
