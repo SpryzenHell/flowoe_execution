@@ -47,36 +47,67 @@ class ContextEncoder(nn.Module):
 
 
 class VectorField(nn.Module):
-    """Time-conditioned vector field for execution trajectory transport."""
+    """Time-conditioned vector field with an export-friendly scalar-time path.
+
+    The time coefficient is stored separately from the input projection. This is
+    algebraically identical to a linear layer over [x, context, t], but avoids
+    slicing the first-layer weight matrix during TensorRT tracing.
+    """
 
     def __init__(self, horizon: int = 8, context_dim: int = 96, hidden: int = 128):
         super().__init__()
+        # Initialize as the original combined projection, then split its time
+        # column once at construction. This preserves the original initialization
+        # distribution and exact operation for a fixed seed.
+        original = nn.Linear(horizon + context_dim + 1, hidden)
+        self.input = nn.Linear(horizon + context_dim, hidden)
+        self.time_weight = nn.Parameter(torch.empty(hidden))
+        with torch.no_grad():
+            self.input.weight.copy_(original.weight[:, :-1])
+            self.time_weight.copy_(original.weight[:, -1])
+            self.input.bias.copy_(original.bias)
         self.net = nn.Sequential(
-            nn.Linear(horizon + context_dim + 1, hidden),
             nn.SELU(),
             nn.Linear(hidden, hidden),
             nn.SELU(),
             nn.Linear(hidden, horizon),
         )
 
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict,
+        missing_keys, unexpected_keys, error_msgs,
+    ):
+        # Migrate checkpoints made with the prior Sequential Linear/SELU/Linear
+        # layout. This keeps older smoke/real checkpoints loadable without
+        # invoking a dynamic tensor slice in an export/trace.
+        legacy = prefix + "net.0.weight"
+        current = prefix + "input.weight"
+        if legacy in state_dict and current not in state_dict:
+            w = state_dict.pop(legacy)
+            state_dict[current] = w[:, :-1].contiguous()
+            state_dict[prefix + "time_weight"] = w[:, -1].contiguous()
+            old_bias = prefix + "net.0.bias"
+            state_dict[prefix + "input.bias"] = state_dict.pop(old_bias)
+            for old_idx, new_idx in ((2, 1), (4, 3)):
+                for param in ("weight", "bias"):
+                    old_key = prefix + f"net.{old_idx}.{param}"
+                    new_key = prefix + f"net.{new_idx}.{param}"
+                    state_dict[new_key] = state_dict.pop(old_key)
+        super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict,
+            missing_keys, unexpected_keys, error_msgs,
+        )
+
     def forward(self, t: torch.Tensor | float, x: torch.Tensor, ctx: torch.Tensor) -> torch.Tensor:
+        z = self.input(torch.cat([x, ctx], dim=1))
         if isinstance(t, (float, int)):
-            # In TensorRT tracing, keep time scalar and split its final-column
-            # contribution out of the first linear layer. This is algebraically
-            # identical to concatenating a batch-sized column filled with t,
-            # but avoids dynamic input slicing/shape arithmetic in converters.
-            first = self.net[0]
-            z = torch.nn.functional.linear(
-                torch.cat([x, ctx], dim=1), first.weight[:, :-1], first.bias
-            )
-            z = z + first.weight[:, -1] * float(t)
-            for layer in list(self.net.children())[1:]:
-                z = layer(z)
-            return z
-        if t.ndim == 0:
-            t = t.expand(x.shape[0])
-        t = t.reshape(-1, 1)
-        return self.net(torch.cat([x, ctx, t], dim=1))
+            z = z + float(t) * self.time_weight
+        else:
+            if t.ndim == 0:
+                t = t.expand(x.shape[0])
+            t = t.reshape(-1, 1)
+            z = z + t * self.time_weight
+        return self.net(z)
 
 
 class CFMPolicy(nn.Module):
