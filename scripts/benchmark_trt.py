@@ -25,6 +25,23 @@ def accuracy_gate(max_abs_error: float, max_allowed_error: float) -> dict:
     }
 
 
+def latency_target_gate(accuracy_passed: bool, batch1_p99_ms: float | None, target_ms: float = 2.0) -> dict:
+    if not np.isfinite(target_ms) or target_ms <= 0:
+        raise ValueError("latency target must be finite and positive")
+    if batch1_p99_ms is not None and (
+        not np.isfinite(batch1_p99_ms) or batch1_p99_ms < 0
+    ):
+        raise ValueError("batch-1 p99 latency must be finite and non-negative")
+    met = bool(accuracy_passed and batch1_p99_ms is not None and batch1_p99_ms < target_ms)
+    return {
+        "latency_target_p99_ms": float(target_ms),
+        "sub_2ms_batch1_p99_target_met": met if target_ms == 2.0 else bool(
+            accuracy_passed and batch1_p99_ms is not None and batch1_p99_ms < target_ms
+        ),
+        "latency_claim_allowed": met,
+    }
+
+
 def stats(values):
     x = np.asarray(values, dtype=np.float64)
     return {
@@ -164,11 +181,9 @@ def main():
         "warmup": args.warmup,
         **accuracy_gate(max_seen_error, args.max_error),
         "cases": cases,
-        "latency_target_p99_ms": 2.0,
         "batch1_p99_end_to_end_wall_ms": batch1_p99_wall,
         "batch1_p99_cuda_event_ms": batch1_p99_gpu,
-        "sub_2ms_batch1_p99_target_met": target_met,
-        "latency_claim_allowed": target_met,
+        **latency_target_gate(accuracy_passed, batch1_p99_wall, target_ms=2.0),
     }
     out = Path(args.output)
     if not out.is_absolute():
