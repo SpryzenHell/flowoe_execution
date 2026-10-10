@@ -86,7 +86,7 @@ def main():
     torch.manual_seed(7)
     torch.cuda.manual_seed_all(7)
 
-    real_l2 = ROOT / "data/real/crypto/BTCUSDT_l2.csv"
+    real_l2_files = sorted((ROOT / "data/real/crypto").glob("*_l2.csv"))
     smoke_l2 = ROOT / "data/smoke/crypto_l2.csv"
     real_ckpt = ROOT / "results/cfm_policy.pt"
     smoke_ckpt = ROOT / "results/cfm_policy_smoke.pt"
@@ -96,13 +96,22 @@ def main():
             checkpoint = ROOT / checkpoint
         if not checkpoint.exists():
             raise SystemExit(f"Checkpoint not found: {checkpoint}")
-        if checkpoint.name == "cfm_policy.pt" and real_l2.exists():
-            l2_path, source = real_l2, "real BTCUSDT L2"
+        if checkpoint.name == "cfm_policy.pt":
+            if not real_l2_files:
+                raise SystemExit("Real checkpoint was requested, but no real L2 input exists")
+            l2_path, source = real_l2_files[0], f"real crypto L2 ({real_l2_files[0].stem})"
+        elif checkpoint.name == "cfm_policy_smoke.pt":
+            if not smoke_l2.exists():
+                raise SystemExit("Smoke checkpoint was requested, but smoke L2 is missing")
+            l2_path, source = smoke_l2, "synthetic smoke L2"
+        elif real_l2_files:
+            l2_path, source = real_l2_files[0], f"real crypto L2 ({real_l2_files[0].stem})"
+        elif smoke_l2.exists():
+            l2_path, source = smoke_l2, "synthetic smoke L2"
         else:
-            l2_path = real_l2 if real_l2.exists() else smoke_l2
-            source = "real BTCUSDT L2" if l2_path == real_l2 else "synthetic smoke L2"
-    elif real_l2.exists() and real_ckpt.exists():
-        l2_path, checkpoint, source = real_l2, real_ckpt, "real BTCUSDT L2"
+            raise SystemExit("No L2 input is available for the requested checkpoint")
+    elif real_l2_files and real_ckpt.exists():
+        l2_path, checkpoint, source = real_l2_files[0], real_ckpt, f"real crypto L2 ({real_l2_files[0].stem})"
     elif smoke_l2.exists() and smoke_ckpt.exists():
         l2_path, checkpoint, source = smoke_l2, smoke_ckpt, "synthetic smoke L2"
     else:

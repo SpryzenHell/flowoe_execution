@@ -77,7 +77,16 @@ def main():
     # use smoke data. Keep the exact inputs the same for the two implementations.
     real_l2_files = sorted((ROOT / "data/real/crypto").glob("*_l2.csv"))
     smoke_l2 = ROOT / "data/smoke/crypto_l2.csv"
-    if checkpoint.name == "cfm_policy.pt" and real_l2_files:
+    if checkpoint.name == "cfm_policy.pt":
+        if not real_l2_files:
+            raise SystemExit("Real checkpoint was requested, but no real crypto L2 input exists")
+        l2_path = real_l2_files[0]
+        source = f"real crypto L2 ({l2_path.stem})"
+    elif checkpoint.name == "cfm_policy_smoke.pt":
+        if not smoke_l2.exists():
+            raise SystemExit("Smoke checkpoint was requested, but smoke L2 is missing")
+        l2_path, source = smoke_l2, "synthetic smoke L2"
+    elif real_l2_files:
         l2_path = real_l2_files[0]
         source = f"real crypto L2 ({l2_path.stem})"
     elif smoke_l2.exists():
