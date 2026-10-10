@@ -122,7 +122,6 @@ def test_fixed_step_dynamic_time_vector_matches_constant_time_reference():
 
 
 
-@pytest.mark.parametrize("steps", [2, 4, 8])
 def test_legacy_vector_field_checkpoint_migrates_exactly():
     torch.manual_seed(77)
     source = CFMPolicy(8).eval()
@@ -154,6 +153,7 @@ def test_legacy_vector_field_checkpoint_migrates_exactly():
     assert torch.allclose(restored.vf(t, x, ctx), source.vf(t, x, ctx), atol=0, rtol=0)
 
 
+@pytest.mark.parametrize("steps", [2, 4, 8])
 def test_scalar_time_sampler_matches_vector_time_sampler(steps):
     torch.manual_seed(101)
     model = CFMPolicy(8).eval()
