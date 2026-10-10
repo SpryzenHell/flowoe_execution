@@ -35,7 +35,7 @@ def test_fi_auxiliary_loss():
     m = CFMPolicy(8)
     c = torch.randn(4, 16, 144)
     labels = torch.randint(1, 4, (4, 5))
-    assert torch.isfinite(m.fi_aux_loss(c, labels))
+    assert torch.isfinite(m.fi_aux_loss(c, labels, label_encoding="one_two_three"))
 
 def test_probability_flow_ode():
     m = ProbabilityFlowODEPolicy(8)
