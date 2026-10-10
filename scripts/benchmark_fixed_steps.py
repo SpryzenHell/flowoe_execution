@@ -167,6 +167,10 @@ def main():
                     "mean_schedule_sum": float(q.sum(1).mean().item()),
                     "minimum_schedule_weight": float(q.min().item()),
                 }
+            reference_stats = {
+                "mean_schedule_sum": float(reference.sum(1).mean().item()),
+                "minimum_schedule_weight": float(reference.min().item()),
+            }
             item = {
                 "batch": batch,
                 "steps": nsteps,
@@ -178,7 +182,7 @@ def main():
                 "reference": "RK4, same initial noise, reference_steps=" + str(args.reference_steps),
                 "runs": args.runs,
                 "warmup": args.warmup,
-                "reference_schedule": quality(reference),
+                "reference_schedule_stats": reference_stats,
                 "pytorch_euler": {**normal_stats, **quality(normal_out)},
             }
             if ext is not None:
