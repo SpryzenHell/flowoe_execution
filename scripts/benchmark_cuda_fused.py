@@ -5,6 +5,7 @@ import json
 import time
 from pathlib import Path
 
+import numpy as np
 import torch
 from torch.utils.cpp_extension import load
 
@@ -70,6 +71,7 @@ def main():
     ap.add_argument("--runs", type=int, default=100)
     ap.add_argument("--warmup", type=int, default=25)
     ap.add_argument("--output", default="results/cuda_fused_latency.json")
+    ap.add_argument("--checkpoint", default="auto")
     args = ap.parse_args()
     if min(args.batch, args.context_len, args.steps, args.runs, args.warmup) <= 0:
         ap.error("batch, context length, steps, runs and warmup must be positive")
@@ -81,10 +83,42 @@ def main():
     ext = build_extension()
     torch.manual_seed(7)
     torch.cuda.manual_seed_all(7)
+
+    real_l2 = ROOT / "data/real/crypto/BTCUSDT_l2.csv"
+    smoke_l2 = ROOT / "data/smoke/crypto_l2.csv"
+    real_ckpt = ROOT / "results/cfm_policy.pt"
+    smoke_ckpt = ROOT / "results/cfm_policy_smoke.pt"
+    if args.checkpoint != "auto":
+        checkpoint = Path(args.checkpoint)
+        if not checkpoint.is_absolute():
+            checkpoint = ROOT / checkpoint
+        if not checkpoint.exists():
+            raise SystemExit(f"Checkpoint not found: {checkpoint}")
+        if checkpoint.name == "cfm_policy.pt" and real_l2.exists():
+            l2_path, source = real_l2, "real BTCUSDT L2"
+        else:
+            l2_path = real_l2 if real_l2.exists() else smoke_l2
+            source = "real BTCUSDT L2" if l2_path == real_l2 else "synthetic smoke L2"
+    elif real_l2.exists() and real_ckpt.exists():
+        l2_path, checkpoint, source = real_l2, real_ckpt, "real BTCUSDT L2"
+    elif smoke_l2.exists() and smoke_ckpt.exists():
+        l2_path, checkpoint, source = smoke_l2, smoke_ckpt, "synthetic smoke L2"
+    else:
+        raise SystemExit("No matching L2 data and trained checkpoint were found")
+
+    from flowoe_execution.data import load_l2_csv
+    from flowoe_execution.features import l2_features
+    features = l2_features(load_l2_csv(l2_path, max_rows=20000).snapshots)
+    if len(features) < args.context_len:
+        raise SystemExit(f"Need at least {args.context_len} L2 rows, found {len(features)}")
+    starts = np.linspace(0, len(features) - args.context_len, num=args.batch, dtype=int)
+    context = torch.stack([
+        torch.from_numpy(features[i:i + args.context_len]) for i in starts
+    ]).cuda()
     model = CFMPolicy(8).cuda().eval()
+    model.load_state_dict(torch.load(checkpoint, map_location="cuda", weights_only=True))
     ref = FixedStepCryptoSampler(model, steps=args.steps).cuda().eval()
     fused = FixedStepCryptoSampler(model, steps=args.steps, fused_step=ext.fused_euler_step).cuda().eval()
-    context = torch.randn(args.batch, args.context_len, 45, device="cuda")
     x0 = torch.randn(args.batch, 8, device="cuda")
 
     ref_stats, ref_out = timed(lambda: ref(context, x0.clone()), args.runs, args.warmup)
@@ -100,6 +134,9 @@ def main():
         "runs": args.runs,
         "warmup": args.warmup,
         "gpu": torch.cuda.get_device_name(0),
+        "data_source": source,
+        "l2_path": str(l2_path),
+        "checkpoint": str(checkpoint),
         "torch_version": torch.__version__,
         "torch_cuda_version": torch.version.cuda,
         "reference": ref_stats,
