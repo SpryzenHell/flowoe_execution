@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from flowoe_execution.data import load_fi2010, load_l2_csv, load_trades_csv
 from flowoe_execution.features import l2_features, features_from_fi2010
-from flowoe_execution.model import CFMPolicy
+from flowoe_execution.model import CFMPolicy, FixedStepCryptoSampler
 from flowoe_execution.execution import ExecutionSimulator, make_schedule_from_trajectory
 from flowoe_execution.metrics import improvement_bps, paired_block_bootstrap_ci, summary_stats
 from flowoe_execution.labels import normalize_fi2010_labels
@@ -42,6 +42,33 @@ def expert(mid_future, horizon, side='buy'):
     return make_schedule_from_trajectory(z)
 
 
+def resolve_sampling_steps(sampler: str, steps: int | None = None) -> int:
+    """Resolve defaults explicitly: RK4 uses 24 steps, Euler paths use 4."""
+    defaults = {"rk4": 24, "fixed_euler": 4, "fused_euler": 4}
+    if sampler not in defaults:
+        raise ValueError(f"unsupported sampler: {sampler}")
+    if steps is None:
+        return defaults[sampler]
+    if steps < 2:
+        raise ValueError("sampling steps must be at least 2")
+    return int(steps)
+
+
+def load_fused_euler_extension():
+    """Build/load the in-place CUDA Euler update used by the execution loop."""
+    from torch.utils.cpp_extension import load
+    return load(
+        name="flowoe_experiment_fused",
+        sources=[
+            str(ROOT / "src/flowoe_execution/cuda/fused_step.cpp"),
+            str(ROOT / "src/flowoe_execution/cuda/fused_step.cu"),
+        ],
+        extra_cflags=["-O3"],
+        extra_cuda_cflags=["-O3"],
+        verbose=False,
+    )
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--smoke', action='store_true')
@@ -56,6 +83,10 @@ def main():
     ap.add_argument('--train-ratio', type=float, default=0.60)
     ap.add_argument('--device', choices=['auto', 'cpu', 'cuda'], default='auto',
                     help='Training/inference device. auto selects CUDA when available.')
+    ap.add_argument('--sampler', choices=['rk4', 'fixed_euler', 'fused_euler'], default='rk4',
+                    help='Execution inference path: RK4 reference, PyTorch Euler, or fused CUDA Euler.')
+    ap.add_argument('--sampling-steps', type=int, default=None,
+                    help='Defaults: 24 for RK4; 4 for fixed/fused Euler. Euler steps count grid points, so there are steps-1 updates.')
     ap.add_argument('--allow-book-vwap', action='store_true', help='Allow the depth-weighted proxy for a real run (not a trade-VWAP evidence run).')
     ap.add_argument('--side', choices=['buy', 'sell'], default='buy')
     ap.add_argument('--quantity', type=float, default=1.0)
@@ -67,6 +98,10 @@ def main():
         ap.error('--train-ratio must be between 0.1 and 0.9')
     if args.quantity <= 0:
         ap.error('--quantity must be positive')
+    try:
+        sampling_steps = resolve_sampling_steps(args.sampler, args.sampling_steps)
+    except ValueError as exc:
+        ap.error(str(exc))
     if args.fi_max_rows < 1 or args.l2_max_rows < 1:
         ap.error('row limits must be positive')
     torch.manual_seed(7); np.random.seed(7)
@@ -146,14 +181,30 @@ def main():
         torch.cuda.synchronize(device)
     train_s = time.perf_counter() - t0
 
+    fixed_sampler = None
+    if args.sampler != 'rk4':
+        fused_step = None
+        if args.sampler == 'fused_euler':
+            if device.type != 'cuda':
+                raise SystemExit('--sampler fused_euler requires a CUDA device')
+            fused_step = load_fused_euler_extension().fused_euler_step
+        fixed_sampler = FixedStepCryptoSampler(
+            model, steps=sampling_steps, fused_step=fused_step
+        ).to(device).eval()
+
     sim = ExecutionSimulator(quantity=args.quantity, side=args.side); baseline, policy = [], []
     baseline_completion, policy_completion = [], []
     benchmark_name = 'trade_vwap' if trades is not None else 'book_vwap'
     for i in range(ntrain, len(l2.snapshots)-horizon, horizon*3):
         ctx = x_crypto[i-ctx_n:i].unsqueeze(0).to(device)
         with torch.no_grad():
-            pred = model.sample(ctx, 'crypto', steps=24)[0].detach().cpu().numpy()
-        r_flow = sim.run(l2.snapshots.iloc[i:i+horizon], make_schedule_from_trajectory(pred), benchmark=benchmark_name, trades=trades, strategy='flowoe')
+            if args.sampler == 'rk4':
+                pred = model.sample(ctx, 'crypto', steps=sampling_steps)[0]
+                schedule = make_schedule_from_trajectory(pred.detach().cpu().numpy())
+            else:
+                x0 = torch.randn((ctx.shape[0], horizon), device=device, dtype=ctx.dtype)
+                schedule = fixed_sampler(ctx, x0)[0].detach().cpu().numpy()
+        r_flow = sim.run(l2.snapshots.iloc[i:i+horizon], schedule, benchmark=benchmark_name, trades=trades, strategy=f'flowoe_{args.sampler}')
         r_twap = sim.run(l2.snapshots.iloc[i:i+horizon], np.ones(horizon)/horizon, benchmark=benchmark_name, trades=trades, strategy='twap')
         baseline.append(r_twap.slippage_bps); policy.append(r_flow.slippage_bps)
         baseline_completion.append(r_twap.completion); policy_completion.append(r_flow.completion)
@@ -181,7 +232,9 @@ def main():
         'device': str(device),
         'context_length': ctx_n,
         'horizon': horizon,
-        'sampling_steps': 24,
+        'sampler': args.sampler,
+        'sampling_steps': sampling_steps,
+        'sampling_updates': sampling_steps - 1 if args.sampler != 'rk4' else sampling_steps,
         'train_ratio': args.train_ratio,
         'python_version': sys.version.split()[0],
         'platform': platform.platform(),
