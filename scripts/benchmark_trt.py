@@ -13,6 +13,19 @@ from flowoe_execution.model import CFMPolicy, FixedStepCryptoSampler
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def accuracy_gate(max_abs_error: float, max_allowed_error: float) -> dict:
+    if not np.isfinite(max_abs_error) or not np.isfinite(max_allowed_error) or max_abs_error < 0 or max_allowed_error <= 0:
+        raise ValueError("accuracy errors must be finite; observed error non-negative and tolerance positive")
+    passed = bool(max_abs_error <= max_allowed_error)
+    return {
+        "status": "passed" if passed else "failed_accuracy",
+        "accuracy_gate_passed": passed,
+        "latency_claim_allowed": passed,
+        "max_abs_output_error": float(max_abs_error),
+        "max_allowed_error": float(max_allowed_error),
+    }
+
+
 def stats(values):
     x = np.asarray(values, dtype=np.float64)
     return {
@@ -136,11 +149,7 @@ def main():
         "steps": args.steps,
         "runs": args.runs,
         "warmup": args.warmup,
-        "status": "passed" if max_seen_error <= args.max_error else "failed_accuracy",
-        "accuracy_gate_passed": bool(max_seen_error <= args.max_error),
-        "latency_claim_allowed": bool(max_seen_error <= args.max_error),
-        "max_abs_output_error": max_seen_error,
-        "max_allowed_error": args.max_error,
+        **accuracy_gate(max_seen_error, args.max_error),
         "cases": cases,
     }
     out = Path(args.output)
