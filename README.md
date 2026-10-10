@@ -341,6 +341,19 @@ The sweep creates a distinct training report and checkpoint per seed/side, runs 
 
 The paired improvement interval resamples blocks of five consecutive execution episodes to reduce dependence between nearby windows. The sweep also reports variation across training seeds and completion rates. These are historical replay estimates against trade VWAP; they are not live exchange fills or a model of market impact.
 
+## Latest A100 real-data study (10 October 2026)
+
+The completed [A100 real-execution sweep #5](https://github.com/SpryzenHell/integrator/actions/runs/38078913959) validated a 12-hour BTCUSDT USD-M futures window and trained/evaluated three seeds for both buy and sell schedules. Each seed/side used 144 held-out windows from the same historical interval.
+
+| Side | Method | TWAP mean slippage | Policy mean slippage | Mean improvement vs TWAP | Pooled paired 95% CI | Mean completion |
+|---|---|---:|---:|---:|---|---:|
+| Buy | RK4 | -0.067921 bps | -0.073220 bps | +0.005299 bps | [-0.015657, +0.028869] | 99.8712% |
+| Sell | RK4 | +0.083079 bps | +0.078506 bps | +0.004574 bps | [-0.018580, +0.029351] | 99.8387% |
+
+These improvements are small, and both intervals include zero. The experiment does **not** demonstrate a reliable benefit and is far below the 2.4 bps target. The 12-hour sample is only one market window; results should be repeated over other dates before drawing broader conclusions. Full per-method, data-hash, latency and TensorRT details are in [the A100 study report](docs/results/FLOWOE_SWEEP5_2026-10-10.md).
+
+The speed/quality latency sweeps used a synthetic smoke checkpoint and synthetic book, not the real-trained model. The TensorRT INT8 engine built and ran, but its maximum output error was 0.0842 at batch 4 against a 0.05 acceptance limit, so its apparent raw speed did not pass the accuracy gate. Neither the TensorRT/fused speedup claim nor the combined sub-2 ms target is established.
+
 ## Leakage controls and evaluation rules
 
 The 45-dimensional L2 feature builder now scales order-flow imbalance using a trailing 32-observation statistic, not a full-dataset statistic. This prevents future evaluation rows from influencing earlier OFI values. A prefix-invariance regression test changes only future book sizes and verifies that earlier features remain unchanged.
