@@ -69,7 +69,7 @@ def main():
     ap = argparse.ArgumentParser(description="Compare PyTorch and CUDA Euler updates in the full sampler.")
     ap.add_argument("--batch", type=int, default=32)
     ap.add_argument("--context-len", type=int, default=32)
-    ap.add_argument("--steps", type=int, default=16)
+    ap.add_argument("--steps", type=int, default=4)
     ap.add_argument("--runs", type=int, default=100)
     ap.add_argument("--warmup", type=int, default=25)
     ap.add_argument("--output", default="results/cuda_fused_latency.json")
