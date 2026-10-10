@@ -17,7 +17,7 @@ from flowoe_execution.features import l2_features
 from flowoe_execution.metrics import paired_block_bootstrap_ci, summary_stats
 from flowoe_execution.model import CFMPolicy, FixedStepCryptoSampler
 from flowoe_execution.ode import integrate_ode
-from flowoe_execution.provenance import source_revision, utc_now
+from flowoe_execution.provenance import source_revision, utc_now, workflow_revision
 
 ROOT = Path(__file__).resolve().parents[1]
 CTX_LEN = 32
@@ -329,6 +329,7 @@ def main():
     result = {
         "created_utc": utc_now(),
         "source_commit": source_revision(ROOT),
+        "workflow_commit": workflow_revision(),
         "status": "passed",
         "data_source": args.data_source,
         "instrument": "BTCUSDT",

@@ -10,7 +10,7 @@ import torch
 from torch.utils.cpp_extension import load
 
 from flowoe_execution.model import CFMPolicy, FixedStepCryptoSampler
-from flowoe_execution.provenance import source_revision, utc_now
+from flowoe_execution.provenance import source_revision, utc_now, workflow_revision
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -142,6 +142,7 @@ def main():
     result = {
         "created_utc": utc_now(),
         "source_commit": source_revision(ROOT),
+        "workflow_commit": workflow_revision(),
         "batch": args.batch,
         "context_len": args.context_len,
         "steps": args.steps,

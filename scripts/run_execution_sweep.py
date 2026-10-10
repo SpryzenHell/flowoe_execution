@@ -13,7 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-from flowoe_execution.provenance import source_revision
+from flowoe_execution.provenance import source_revision, workflow_revision
 
 
 def split_ints(value: str, label: str) -> list[int]:
@@ -112,6 +112,7 @@ def write_markdown(path: Path, manifest: dict) -> None:
         "",
         f"- Completed UTC: {manifest['completed_utc']}",
         f"- Source commit: {manifest.get('source_commit') or 'unknown'}",
+        f"- Workflow commit: {manifest.get('workflow_commit') or 'unknown'}",
         f"- Dataset note: {manifest['dataset_note']}",
         f"- FI-2010 input SHA-256: {manifest['fi_sha256']}",
         f"- L2 input SHA-256: {manifest['l2_sha256']}",
@@ -198,6 +199,7 @@ def main():
 
     manifest = {
         "source_commit": source_revision(ROOT),
+        "workflow_commit": workflow_revision(),
         "started_utc": datetime.now(timezone.utc).isoformat(),
         "dataset_note": "FI-2010 plus sequence-checked BTCUSDT USD-M futures depth/trade inputs; slippage is simulator output, not a live-fill result.",
         "fi_path": str(fi), "fi_sha256": file_hash(fi),

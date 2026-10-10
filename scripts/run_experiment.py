@@ -8,7 +8,7 @@ from flowoe_execution.model import CFMPolicy, FixedStepCryptoSampler
 from flowoe_execution.execution import ExecutionSimulator, make_schedule_from_trajectory
 from flowoe_execution.metrics import improvement_bps, paired_block_bootstrap_ci, summary_stats
 from flowoe_execution.labels import normalize_fi2010_labels
-from flowoe_execution.provenance import source_revision, utc_now
+from flowoe_execution.provenance import source_revision, utc_now, workflow_revision
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -233,6 +233,7 @@ def main():
     report = {
         'created_utc': utc_now(),
         'source_commit': source_revision(ROOT),
+        'workflow_commit': workflow_revision(),
         'dataset': dataset_name,
         'data_source': 'synthetic' if dataset_name.startswith('synthetic') else args.data_source,
         'instrument': args.instrument,

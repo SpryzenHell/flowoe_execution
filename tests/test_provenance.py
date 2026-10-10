@@ -1,7 +1,7 @@
 from pathlib import Path
 import re
 
-from flowoe_execution.provenance import source_revision, utc_now
+from flowoe_execution.provenance import source_revision, utc_now, workflow_revision
 
 
 def test_source_revision_records_full_commit_in_repository():
@@ -18,3 +18,13 @@ def test_source_revision_is_optional_outside_git_checkout(tmp_path):
 def test_utc_timestamp_is_timezone_aware():
     value = utc_now()
     assert value.endswith("+00:00")
+
+
+def test_workflow_revision_accepts_full_commit_sha(monkeypatch):
+    monkeypatch.setenv("GITHUB_SHA", "a" * 40)
+    assert workflow_revision() == "a" * 40
+
+
+def test_workflow_revision_rejects_invalid_sha(monkeypatch):
+    monkeypatch.setenv("GITHUB_SHA", "not-a-commit")
+    assert workflow_revision() is None
