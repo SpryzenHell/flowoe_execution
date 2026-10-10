@@ -52,7 +52,9 @@ def register_selu_converter():
     import tensorrt as trt
     from torch2trt_dynamic.torch2trt_dynamic import get_arg, tensorrt_converter, trt_
 
+    @tensorrt_converter("torch.selu_")
     @tensorrt_converter("torch.nn.functional.selu")
+    @tensorrt_converter("torch.selu")
     def convert_selu(ctx):
         value = get_arg(ctx, "input", pos=0, default=None)
         layer = ctx.network.add_activation(
