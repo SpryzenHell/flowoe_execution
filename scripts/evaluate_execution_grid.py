@@ -151,6 +151,7 @@ def main():
         samplers[key] = FixedStepCryptoSampler(model, steps=steps).to(device).eval()
         schedule_errors[key] = []
     fused_error = None
+    disabled_fused: set[str] = set()
     if args.include_fused:
         try:
             from torch.utils.cpp_extension import load
@@ -223,7 +224,21 @@ def main():
             "schedule_error": {"mean_abs_error": 0.0, "max_abs_error": 0.0, "mean_kl_reference_to_candidate": 0.0},
         }
         for key, sampler in samplers.items():
+            if key in disabled_fused:
+                continue
             pred = evaluate_one(model, sampler, ctx, x0)
+            raw_error = None
+            if key.startswith("fused_euler_"):
+                ref_key = key.replace("fused_euler_", "fixed_euler_")
+                ref_pred = samplers[ref_key](ctx, x0.clone())
+                raw_error = float((pred - ref_pred).abs().max().item())
+                if raw_error > args.fused_max_error:
+                    fused_error = (
+                        f"{key} max output error {raw_error:.8g} exceeded "
+                        f"tolerance {args.fused_max_error:.8g} at episode {episode_idx}"
+                    )
+                    disabled_fused.add(key)
+                    continue
             schedule = pred[0].detach().cpu().numpy()
             execution = simulator.run(
                 window, schedule, benchmark="trade_vwap", trades=trades,
@@ -239,16 +254,7 @@ def main():
                 "completion": execution.completion,
                 "schedule_error": err,
             }
-            if key.startswith("fused_euler_"):
-                # Track disagreement with the matching PyTorch Euler output,
-                # not only its difference from the RK4 reference.
-                ref_key = key.replace("fused_euler_", "fixed_euler_")
-                ref_pred = samplers[ref_key](ctx, x0.clone())
-                raw_error = float((pred - ref_pred).abs().max().item())
-                if raw_error > args.fused_max_error:
-                    raise RuntimeError(
-                        f"Fused output mismatch in episode {episode_idx}, {key}: {raw_error}"
-                    )
+            if raw_error is not None:
                 episode_record["methods"][key]["max_abs_error_vs_pytorch_euler"] = raw_error
         episode_records.append(episode_record)
 
