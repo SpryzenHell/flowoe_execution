@@ -53,13 +53,23 @@ def calibration_contexts(context, x, count=32, prefer_real=False):
 def register_selu_converter():
     """Register the exact PyTorch SELU parameters with TensorRT's native SELU layer."""
     import tensorrt as trt
-    from torch2trt_dynamic.torch2trt_dynamic import get_arg, tensorrt_converter, trt_
+    from torch2trt_dynamic.torch2trt_dynamic import tensorrt_converter, trt_
 
+    @tensorrt_converter("torch.nn.SELU.forward")
+    @tensorrt_converter("torch.nn.modules.activation.SELU.forward")
     @tensorrt_converter("torch.selu_")
     @tensorrt_converter("torch.nn.functional.selu")
     @tensorrt_converter("torch.selu")
     def convert_selu(ctx):
-        value = get_arg(ctx, "input", pos=0, default=None)
+        # SELU appears both as a module call (self, input) and as a functional
+        # call (input). Select the Tensor argument instead of assuming that
+        # positional argument zero is always the activation input.
+        value = next(
+            (arg for arg in reversed(ctx.method_args) if isinstance(arg, torch.Tensor)),
+            None,
+        )
+        if value is None:
+            raise RuntimeError(f"Could not find tensor input for SELU: {ctx.method_args!r}")
         layer = ctx.network.add_activation(
             trt_(ctx.network, value), trt.ActivationType.SELU
         )
