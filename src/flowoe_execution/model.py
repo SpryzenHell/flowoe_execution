@@ -4,6 +4,7 @@ import torch
 from torch import nn
 
 from .ode import integrate_ode
+from .labels import normalize_fi2010_labels
 
 
 class ContextEncoder(nn.Module):
@@ -79,17 +80,22 @@ class CFMPolicy(nn.Module):
             nn.Linear(hidden, 15),
         )
 
-    def fi_aux_loss(self, context: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-        """Auxiliary FI-2010 three-way movement classification at five horizons."""
+    def fi_aux_loss(
+        self,
+        context: torch.Tensor,
+        labels: torch.Tensor,
+        label_encoding: str = "auto",
+    ) -> torch.Tensor:
+        """Auxiliary FI-2010 movement classification at five horizons.
+
+        Labels are normalized to classes 0/1/2 explicitly. For auto-detection,
+        pass the complete FI-2010 label matrix rather than a random minibatch,
+        or specify its encoding. This avoids incorrect shifts when a minibatch
+        happens to contain only a subset of the three classes.
+        """
         if labels.ndim != 2 or labels.shape[1] != 5:
             raise ValueError(f"expected labels shaped (N, 5), got {tuple(labels.shape)}")
-        labels = labels.long()
-        if labels.min() >= 1 and labels.max() <= 3:
-            labels = labels - 1
-        elif labels.min() >= -1 and labels.max() <= 1:
-            labels = labels + 1
-        if labels.min() < 0 or labels.max() > 2:
-            raise ValueError("FI-2010 labels must be encoded as 1/2/3, 0/1/2, or -1/0/1")
+        labels, _ = normalize_fi2010_labels(labels, label_encoding)
         ctx = self.context(context, "fi2010")
         logits = self.fi_head(ctx).view(labels.shape[0], 5, 3)
         return torch.nn.functional.cross_entropy(logits.transpose(1, 2), labels)
