@@ -75,10 +75,11 @@ def main():
 
     # Use real L2 contexts when the checkpoint was trained on them; otherwise
     # use smoke data. Keep the exact inputs the same for the two implementations.
-    real_l2 = ROOT / "data/real/crypto/BTCUSDT_l2.csv"
+    real_l2_files = sorted((ROOT / "data/real/crypto").glob("*_l2.csv"))
     smoke_l2 = ROOT / "data/smoke/crypto_l2.csv"
-    if checkpoint.name == "cfm_policy.pt" and real_l2.exists():
-        l2_path, source = real_l2, "real BTCUSDT L2"
+    if checkpoint.name == "cfm_policy.pt" and real_l2_files:
+        l2_path = real_l2_files[0]
+        source = f"real crypto L2 ({l2_path.stem})"
     elif smoke_l2.exists():
         l2_path, source = smoke_l2, "synthetic smoke L2"
     else:
