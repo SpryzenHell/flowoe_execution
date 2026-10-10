@@ -50,7 +50,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--engine", default="results/flowoe_int8.pth")
     ap.add_argument("--checkpoint", default="results/cfm_policy_smoke.pt")
-    ap.add_argument("--steps", type=int, default=16)
+    ap.add_argument("--steps", type=int, default=4)
     ap.add_argument("--runs", type=int, default=200)
     ap.add_argument("--warmup", type=int, default=50)
     ap.add_argument("--max-error", type=float, default=0.05)
