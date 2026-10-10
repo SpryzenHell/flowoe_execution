@@ -118,6 +118,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--training-report", help="Optional JSON training report that records the FI-2010 provenance.")
+    ap.add_argument("--data-source", choices=["public_futures", "user_supplied", "synthetic"], default="user_supplied",
+                    help="Provenance label for the execution input files; use public_futures only for independently validated public Futures data.")
     ap.add_argument("--l2", help="Validated L2 CSV; defaults to the first real *_l2.csv file.")
     ap.add_argument("--trades", help="Validated trade CSV; defaults to the first real *_trades.csv file.")
     ap.add_argument("--side", choices=["buy", "sell"], required=True)
@@ -325,7 +327,7 @@ def main():
 
     result = {
         "status": "passed",
-        "data_source": "validated public market data; non-synthetic",
+        "data_source": args.data_source,
         "instrument": "BTCUSDT",
         "venue": "Binance USD-M futures",
         "side": args.side,
@@ -356,7 +358,7 @@ def main():
         "fused_extension_error": fused_error,
         "methods": summaries,
         "episode_results": episode_records,
-        "note": "Execution-simulator slippage against market trade VWAP; no market-impact or real order-fill claim. Paired moving-block bootstrap uses 5 consecutive episodes per block.",
+        "note": "Execution-simulator slippage against market trade VWAP; no market-impact or real order-fill claim. Paired moving-block bootstrap uses 5 consecutive episodes per block. The data_source field is the caller-provided provenance label and must be supported by independent input validation.",
     }
     out = Path(args.report)
     if not out.is_absolute():
