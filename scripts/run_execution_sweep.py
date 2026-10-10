@@ -218,6 +218,7 @@ def main():
                 "--fi-max-rows", "50000", "--l2-max-rows", "200000",
                 "--train-ratio", str(args.train_ratio), "--quantity", str(args.quantity),
                 "--instrument", "BTCUSDT", "--side", side, "--seed", str(seed),
+                "--data-source", "public_futures",
                 "--sampler", "rk4", "--sampling-steps", "24",
                 "--report-out", str(train_report), "--checkpoint-out", str(checkpoint),
             ]
