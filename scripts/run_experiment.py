@@ -74,6 +74,8 @@ def main():
     ap.add_argument('--smoke', action='store_true')
     ap.add_argument('--epochs', type=int, default=120)
     ap.add_argument('--seed', type=int, default=7, help='Random seed for initialization, training order and sampling.')
+    ap.add_argument('--data-source', choices=['user_supplied', 'public_futures'], default='user_supplied',
+                    help='Provenance of the non-synthetic market files; use public_futures only after independent validation.')
     ap.add_argument('--report-out', help='Optional path for the JSON report; defaults to results/real_experiment.json or smoke_experiment.json.')
     ap.add_argument('--checkpoint-out', help='Optional path for the trained checkpoint; defaults to results/cfm_policy.pt or cfm_policy_smoke.pt.')
     ap.add_argument('--fi')
@@ -229,6 +231,7 @@ def main():
 
     report = {
         'dataset': dataset_name,
+        'data_source': 'synthetic' if dataset_name.startswith('synthetic') else args.data_source,
         'instrument': args.instrument,
         'side': args.side,
         'quantity': args.quantity,
@@ -262,7 +265,10 @@ def main():
         'paired_improvement_vs_twap_bps': paired_improvement,
         'paired_improvement_ci95_bps': paired_ci95,
         'paired_ci_method': 'paired moving-block bootstrap on consecutive execution windows (block size 5)',
-        'note': 'Synthetic smoke data only; not FI-2010 or real crypto L2.' if dataset_name.startswith('synthetic') else ('User-supplied real data with trade VWAP.' if trades is not None else 'User-supplied real data with book-VWAP proxy; not the resume evidence benchmark.')
+        'note': 'Synthetic smoke data only; not FI-2010 or real crypto L2.' if dataset_name.startswith('synthetic') else (
+            'Public Binance USD-M Futures depth/trades, independently validated before training; replay slippage is not a live fill.' if args.data_source == 'public_futures' and trades is not None else
+            ('User-supplied real data with trade VWAP.' if trades is not None else 'User-supplied real data with book-VWAP proxy; not the resume evidence benchmark.')
+        )
     }
     out = ROOT / 'results'; out.mkdir(exist_ok=True)
     default_checkpoint = out / ('cfm_policy_smoke.pt' if dataset_name.startswith('synthetic') else 'cfm_policy.pt')
