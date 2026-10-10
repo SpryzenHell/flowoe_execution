@@ -59,7 +59,20 @@ class VectorField(nn.Module):
             nn.Linear(hidden, horizon),
         )
 
-    def forward(self, t: torch.Tensor, x: torch.Tensor, ctx: torch.Tensor) -> torch.Tensor:
+    def forward(self, t: torch.Tensor | float, x: torch.Tensor, ctx: torch.Tensor) -> torch.Tensor:
+        if isinstance(t, (float, int)):
+            # In TensorRT tracing, keep time scalar and split its final-column
+            # contribution out of the first linear layer. This is algebraically
+            # identical to concatenating a batch-sized column filled with t,
+            # but avoids dynamic input slicing/shape arithmetic in converters.
+            first = self.net[0]
+            z = torch.nn.functional.linear(
+                torch.cat([x, ctx], dim=1), first.weight[:, :-1], first.bias
+            )
+            z = z + first.weight[:, -1] * float(t)
+            for layer in list(self.net.children())[1:]:
+                z = layer(z)
+            return z
         if t.ndim == 0:
             t = t.expand(x.shape[0])
         t = t.reshape(-1, 1)
@@ -203,7 +216,7 @@ class ProbabilityFlowODEPolicy(nn.Module):
 class FixedStepCryptoSampler(nn.Module):
     """Fixed-step sampler suitable for TensorRT/CUDA benchmarking."""
 
-    def __init__(self, policy: CFMPolicy, steps: int = 4, fused_step=None):
+    def __init__(self, policy: CFMPolicy, steps: int = 4, fused_step=None, scalar_time: bool = False):
         super().__init__()
         if steps < 2:
             raise ValueError("steps must be at least 2")
@@ -211,14 +224,16 @@ class FixedStepCryptoSampler(nn.Module):
         self.vf = policy.vf
         self.steps = steps
         self.fused_step = fused_step
+        self.scalar_time = bool(scalar_time)
 
     def forward(self, context: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
         ctx = self.context.crypto_encode(context)
         dt = 1.0 / float(self.steps - 1)
         for i in range(self.steps - 1):
-            # full_like preserves the dynamic batch dimension and is directly
-            # supported by torch2trt_dynamic; Tensor.new_full is not.
-            t = torch.full_like(x[:, 0], float(i) * dt)
+            # TensorRT's dynamic getitem converter has an int64/int32 shape
+            # issue for x[:, 0]. The scalar-time mode takes the equivalent
+            # algebraic path in VectorField without slicing a dynamic input.
+            t = float(i) * dt if self.scalar_time else torch.full_like(x[:, 0], float(i) * dt)
             v = self.vf(t, x, ctx)
             if self.fused_step is None:
                 x = x + dt * v

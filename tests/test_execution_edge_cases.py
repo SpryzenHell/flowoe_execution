@@ -120,6 +120,21 @@ def test_fixed_step_dynamic_time_vector_matches_constant_time_reference():
         assert torch.allclose(actual, expected, atol=1e-6, rtol=1e-5)
 
 
+
+@pytest.mark.parametrize("steps", [2, 4, 8])
+def test_scalar_time_sampler_matches_vector_time_sampler(steps):
+    torch.manual_seed(101)
+    model = CFMPolicy(8).eval()
+    context = torch.randn(3, 32, 45)
+    x0 = torch.randn(3, 8)
+    regular = FixedStepCryptoSampler(model, steps=steps)
+    scalar = FixedStepCryptoSampler(model, steps=steps, scalar_time=True)
+    with torch.no_grad():
+        expected = regular(context, x0.clone())
+        actual = scalar(context, x0.clone())
+    assert torch.allclose(actual, expected, atol=1e-6, rtol=1e-6)
+
+
 def test_vwap_helpers_return_finite_values():
     book = sample_l2()
     trades = pd.DataFrame(

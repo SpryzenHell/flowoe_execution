@@ -91,7 +91,7 @@ def main():
         raise SystemExit(f"Model checkpoint not found: {checkpoint}")
     policy = CFMPolicy(8).cuda().eval()
     policy.load_state_dict(torch.load(checkpoint, map_location="cuda", weights_only=True))
-    wrapper = FixedStepCryptoSampler(policy, args.steps).cuda().eval()
+    wrapper = FixedStepCryptoSampler(policy, args.steps, scalar_time=True).cuda().eval()
     context = torch.zeros(1, 32, 45, device="cuda")
     x = torch.zeros(1, 8, device="cuda")
     calibration, calibration_source = calibration_contexts(
