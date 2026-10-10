@@ -15,10 +15,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def calibration_contexts(context, x, count=32, prefer_real=False):
     """Use data that matches the checkpoint where available."""
-    names = (
-        ("data/real/crypto/BTCUSDT_l2.csv", "data/smoke/crypto_l2.csv")
-        if prefer_real else
-        ("data/smoke/crypto_l2.csv", "data/real/crypto/BTCUSDT_l2.csv")
+    real_names = sorted(
+        str(p.relative_to(ROOT))
+        for p in (ROOT / "data/real/crypto").glob("*_l2.csv")
+    )
+    names = (real_names + ["data/smoke/crypto_l2.csv"]) if prefer_real else (
+        ["data/smoke/crypto_l2.csv"] + real_names
     )
     for name in names:
         path = ROOT / name
@@ -32,13 +34,14 @@ def calibration_contexts(context, x, count=32, prefer_real=False):
             if len(features) < context.shape[1]:
                 continue
             starts = np.linspace(0, len(features) - context.shape[1], num=count, dtype=int)
+            source = f"real crypto L2 ({path.stem})" if "real/" in name else "synthetic smoke L2"
             return [
                 {
                     "context": torch.from_numpy(features[i:i + context.shape[1]]).unsqueeze(0).to(context.device),
                     "x": torch.randn_like(x),
                 }
                 for i in starts
-            ], "real BTCUSDT L2" if "real/" in name else "synthetic smoke L2"
+            ], source
         except Exception:
             continue
     return [
