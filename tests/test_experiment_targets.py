@@ -4,7 +4,7 @@ import pytest
 
 from scripts.run_experiment import expert, fi_training_windows
 from scripts.evaluate_execution_grid import compare_schedules, summarize_paired_method
-from scripts.benchmark_trt import accuracy_gate
+from scripts.benchmark_trt import accuracy_gate, latency_target_gate
 
 
 def test_fi_training_windows_keep_all_label_horizons_inside_training_split():
@@ -70,18 +70,28 @@ def test_paired_method_summary_rejects_partial_baseline_alignment():
 
 
 
-def test_tensor_rt_accuracy_gate_blocks_latency_claim_when_error_is_too_high():
+def test_tensor_rt_accuracy_gate_is_separate_from_latency_claim():
     passed = accuracy_gate(0.01, 0.05)
     failed = accuracy_gate(0.08, 0.05)
     assert passed["status"] == "passed"
-    assert passed["latency_claim_allowed"] is True
+    assert passed["accuracy_gate_passed"] is True
     assert failed["status"] == "failed_accuracy"
     assert failed["accuracy_gate_passed"] is False
-    assert failed["latency_claim_allowed"] is False
+    assert "latency_claim_allowed" not in passed
 
 
-def test_tensor_rt_accuracy_gate_rejects_invalid_thresholds():
+def test_latency_claim_requires_accuracy_and_batch1_p99_below_target():
+    assert latency_target_gate(True, 1.9)["latency_claim_allowed"] is True
+    assert latency_target_gate(True, 2.0)["latency_claim_allowed"] is False
+    assert latency_target_gate(True, 2.7)["sub_2ms_batch1_p99_target_met"] is False
+    assert latency_target_gate(False, 1.2)["latency_claim_allowed"] is False
+    assert latency_target_gate(True, None)["latency_claim_allowed"] is False
+
+
+def test_tensor_rt_gates_reject_invalid_thresholds():
     with pytest.raises(ValueError, match="finite"):
         accuracy_gate(float("nan"), 0.05)
     with pytest.raises(ValueError, match="tolerance positive"):
         accuracy_gate(0.01, 0.0)
+    with pytest.raises(ValueError, match="finite and positive"):
+        latency_target_gate(True, 1.0, target_ms=float("inf"))
