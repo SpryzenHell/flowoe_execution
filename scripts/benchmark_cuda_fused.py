@@ -15,14 +15,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def stats(values):
-    x = sorted(float(v) for v in values)
-    if not x:
-        raise ValueError("Cannot summarize an empty timing sample")
+    x = np.asarray(values, dtype=np.float64)
+    if x.ndim != 1 or x.size == 0 or not np.isfinite(x).all():
+        raise ValueError("Timing samples must be non-empty, finite and one-dimensional")
     return {
-        "mean_ms": sum(x) / len(x),
-        "p50_ms": x[min(len(x) - 1, int(0.50 * len(x)))],
-        "p95_ms": x[min(len(x) - 1, int(0.95 * len(x)))],
-        "p99_ms": x[min(len(x) - 1, int(0.99 * len(x)))],
+        "mean_ms": float(np.mean(x)),
+        "p50_ms": float(np.percentile(x, 50)),
+        "p95_ms": float(np.percentile(x, 95)),
+        "p99_ms": float(np.percentile(x, 99)),
+        "min_ms": float(np.min(x)),
+        "max_ms": float(np.max(x)),
     }
 
 
