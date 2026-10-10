@@ -93,6 +93,28 @@ def test_fixed_step_sampler_is_normalized_and_fused_equivalent():
     assert torch.allclose(out_ref, out_fused, atol=1e-6, rtol=1e-5)
 
 
+def test_fixed_step_dynamic_time_vector_matches_constant_time_reference():
+    torch.manual_seed(41)
+    model = CFMPolicy(8).eval()
+    steps = 6
+    sampler = FixedStepCryptoSampler(model, steps=steps).eval()
+    for batch in (1, 4, 8):
+        context = torch.randn(batch, 32, 45)
+        latent = torch.randn(batch, 8)
+        actual = sampler(context, latent.clone())
+        ctx = model.context.crypto_encode(context, "crypto")
+        x = latent.clone()
+        dt = 1.0 / (steps - 1)
+        for i in range(steps - 1):
+            t = torch.full((batch,), i * dt, dtype=x.dtype, device=x.device)
+            x = x + dt * model.vf(t, x, ctx)
+        expected = torch.softmax(x, dim=1)
+        assert actual.shape == (batch, 8)
+        assert torch.isfinite(actual).all()
+        assert torch.allclose(actual.sum(1), torch.ones(batch), atol=1e-6)
+        assert torch.allclose(actual, expected, atol=1e-6, rtol=1e-5)
+
+
 def test_vwap_helpers_return_finite_values():
     book = sample_l2()
     trades = pd.DataFrame(
