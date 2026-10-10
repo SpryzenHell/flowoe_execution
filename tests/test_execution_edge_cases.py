@@ -102,7 +102,7 @@ def test_fixed_step_dynamic_time_vector_matches_constant_time_reference():
         context = torch.randn(batch, 32, 45)
         latent = torch.randn(batch, 8)
         actual = sampler(context, latent.clone())
-        ctx = model.context.crypto_encode(context, "crypto")
+        ctx = model.context.crypto_encode(context)
         x = latent.clone()
         dt = 1.0 / (steps - 1)
         for i in range(steps - 1):
