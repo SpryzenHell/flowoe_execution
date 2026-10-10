@@ -10,6 +10,7 @@ import torch
 from torch.utils.cpp_extension import load
 
 from flowoe_execution.model import CFMPolicy, FixedStepCryptoSampler
+from flowoe_execution.provenance import source_revision, utc_now
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -139,6 +140,8 @@ def main():
         raise RuntimeError(f"Fused output differs from reference: max_abs_error={max_error}")
 
     result = {
+        "created_utc": utc_now(),
+        "source_commit": source_revision(ROOT),
         "batch": args.batch,
         "context_len": args.context_len,
         "steps": args.steps,

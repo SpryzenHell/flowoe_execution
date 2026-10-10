@@ -10,6 +10,7 @@ import numpy as np
 import torch
 
 from flowoe_execution.model import CFMPolicy, FixedStepCryptoSampler
+from flowoe_execution.provenance import source_revision, utc_now
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -223,6 +224,8 @@ def main():
             results.append(item)
 
     result = {
+        "created_utc": utc_now(),
+        "source_commit": source_revision(ROOT),
         "gpu": torch.cuda.get_device_name(0),
         "gpu_capability": list(torch.cuda.get_device_capability(0)),
         "torch_version": torch.__version__,

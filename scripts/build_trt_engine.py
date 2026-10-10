@@ -9,6 +9,7 @@ import numpy as np
 import torch
 
 from flowoe_execution.model import CFMPolicy, FixedStepCryptoSampler
+from flowoe_execution.provenance import source_revision, utc_now
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -123,6 +124,8 @@ def main():
     out.parent.mkdir(parents=True, exist_ok=True)
     torch.save(engine.state_dict(), out)
     report = {
+        "created_utc": utc_now(),
+        "source_commit": source_revision(ROOT),
         "status": "built",
         "precision": "INT8",
         "tensorrt_version": trt.__version__,
