@@ -11,6 +11,28 @@ from flowoe_execution.metrics import improvement_bps, paired_block_bootstrap_ci,
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def fi_training_windows(features, labels, train_ratio, context_len=32, stride=8, max_label_horizon=10):
+    """Build chronological FI windows without labels crossing the train split.
+
+    FI-2010 labels encode future price movement up to the 10-step horizon.
+    The final observation in every context must have its label horizon fully
+    contained within the training partition.
+    """
+    if features.ndim != 2 or labels.ndim != 2 or len(features) != len(labels):
+        raise ValueError("features and labels must be aligned 2-D arrays")
+    if not 0 < train_ratio < 1 or context_len < 1 or stride < 1 or max_label_horizon < 1:
+        raise ValueError("invalid FI training window parameters")
+    split = int(len(features) * train_ratio)
+    stop = max(0, split - max_label_horizon - context_len + 1)
+    contexts, targets = [], []
+    for start in range(0, stop, stride):
+        last = start + context_len - 1
+        contexts.append(features[start:start + context_len])
+        targets.append(torch.as_tensor(labels[last], dtype=torch.long))
+        assert last + max_label_horizon < split
+    return contexts, targets
+
+
 def expert(mid_future, horizon, side='buy'):
     future = np.asarray(mid_future[:horizon], dtype=np.float64)
     centered = (future - future.mean()) / (future.std() + 1e-6)
@@ -93,14 +115,10 @@ def main():
     fi_x = torch.from_numpy(features_from_fi2010(fi.features))
     if not torch.isfinite(fi_x).all():
         raise SystemExit('FI-2010 feature conversion returned non-finite values')
-    fi_ctx = []
-    fi_labels = []
-    fi_ntrain = int(len(fi.features) * args.train_ratio)
-    for i in range(0, max(0, fi_ntrain - ctx_n), stride):
-        fi_ctx.append(fi_x[i:i+ctx_n])
-        # Each FI-2010 row carries five future-horizon labels; use the
-        # label vector attached to the final observation in the context.
-        fi_labels.append(torch.tensor(fi.labels[i + ctx_n - 1], dtype=torch.long))
+    fi_ctx, fi_labels = fi_training_windows(
+        fi_x, fi.labels, args.train_ratio, context_len=ctx_n, stride=stride,
+        max_label_horizon=10,
+    )
 
     torch.set_num_threads(2)
     model = CFMPolicy(horizon=horizon).to(device)
