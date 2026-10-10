@@ -28,6 +28,33 @@ def summarize(values):
     }
 
 
+def schedule_quality(out: torch.Tensor, reference: torch.Tensor) -> dict:
+    """Compare a generated schedule with a same-noise RK4 reference schedule."""
+    q = out.clamp_min(1e-12)
+    p = reference.clamp_min(1e-12)
+    if q.shape != p.shape:
+        raise ValueError(f"schedule shape mismatch: {tuple(q.shape)} vs {tuple(p.shape)}")
+    if not torch.isfinite(q).all() or not torch.isfinite(p).all():
+        raise ValueError("schedules must contain only finite values")
+    return {
+        "mean_abs_schedule_error_vs_rk4": float((q - p).abs().mean().item()),
+        "max_abs_schedule_error_vs_rk4": float((q - p).abs().max().item()),
+        "mean_kl_reference_to_euler": float((p * (p.log() - q.log())).sum(1).mean().item()),
+        "mean_schedule_sum": float(q.sum(1).mean().item()),
+        "minimum_schedule_weight": float(q.min().item()),
+    }
+
+
+def schedule_stats(reference: torch.Tensor) -> dict:
+    """Summarize reference schedule shape without falsely claiming self-error."""
+    if not torch.isfinite(reference).all():
+        raise ValueError("reference schedule must contain only finite values")
+    return {
+        "mean_schedule_sum": float(reference.sum(1).mean().item()),
+        "minimum_schedule_weight": float(reference.min().item()),
+    }
+
+
 def measure(fn, runs, warmup):
     with torch.no_grad():
         for _ in range(warmup):
@@ -157,16 +184,6 @@ def main():
             normal_stats, normal_out = measure(
                 lambda: normal(context, x0.clone()), args.runs, args.warmup
             )
-            def quality(out):
-                q = out.clamp_min(1e-12)
-                p = reference.clamp_min(1e-12)
-                return {
-                    "mean_abs_schedule_error_vs_rk4": float((q - p).abs().mean().item()),
-                    "max_abs_schedule_error_vs_rk4": float((q - p).abs().max().item()),
-                    "mean_kl_reference_to_euler": float((p * (p.log() - q.log())).sum(1).mean().item()),
-                    "mean_schedule_sum": float(q.sum(1).mean().item()),
-                    "minimum_schedule_weight": float(q.min().item()),
-                }
             reference_stats = {
                 "mean_schedule_sum": float(reference.sum(1).mean().item()),
                 "minimum_schedule_weight": float(reference.min().item()),
@@ -182,8 +199,8 @@ def main():
                 "reference": "RK4, same initial noise, reference_steps=" + str(args.reference_steps),
                 "runs": args.runs,
                 "warmup": args.warmup,
-                "reference_schedule_stats": reference_stats,
-                "pytorch_euler": {**normal_stats, **quality(normal_out)},
+                "reference_schedule_stats": schedule_stats(reference),
+                "pytorch_euler": {**normal_stats, **schedule_quality(normal_out, reference)},
             }
             if ext is not None:
                 fused = FixedStepCryptoSampler(
@@ -198,7 +215,7 @@ def main():
                         f"Fused output mismatch batch={batch} steps={nsteps}: {max_error}"
                     )
                 item.update({
-                    "fused_euler": {**fused_stats, **quality(fused_out)},
+                    "fused_euler": {**fused_stats, **schedule_quality(fused_out, reference)},
                     "fused_vs_pytorch_max_abs_error": max_error,
                     "speedup_mean_wall": normal_stats["end_to_end_wall_ms"]["mean_ms"] / fused_stats["end_to_end_wall_ms"]["mean_ms"],
                     "speedup_mean_cuda_event": normal_stats["cuda_event_ms"]["mean_ms"] / fused_stats["cuda_event_ms"]["mean_ms"],
