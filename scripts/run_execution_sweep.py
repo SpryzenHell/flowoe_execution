@@ -233,6 +233,7 @@ def main():
                     sys.executable, "scripts/evaluate_execution_grid.py",
                     "--checkpoint", str(checkpoint), "--training-report", str(train_report),
                     "--l2", str(l2), "--trades", str(trades),
+                    "--data-source", "public_futures",
                     "--side", side, "--quantity", str(args.quantity),
                     "--train-ratio", str(args.train_ratio), "--seed", str(seed),
                     "--euler-steps", ",".join(str(x) for x in euler_steps),
