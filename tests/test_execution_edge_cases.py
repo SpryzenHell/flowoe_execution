@@ -81,6 +81,11 @@ def test_probability_flow_score_path_is_finite():
     assert torch.isfinite(model.sample(context, "crypto", steps=4)).all()
 
 
+def test_fixed_step_sampler_defaults_to_validated_low_latency_steps():
+    sampler = FixedStepCryptoSampler(CFMPolicy(8))
+    assert sampler.steps == 4
+
+
 def test_fixed_step_sampler_is_normalized_and_fused_equivalent():
     model = CFMPolicy(8)
     context = torch.randn(2, 16, 45)
