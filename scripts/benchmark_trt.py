@@ -26,6 +26,24 @@ def accuracy_gate(max_abs_error: float, max_allowed_error: float) -> dict:
     }
 
 
+def output_error_metrics(reference: torch.Tensor, candidate: torch.Tensor) -> dict:
+    """Measure fixed-step schedule error on identical PyTorch/TensorRT outputs."""
+    if reference.shape != candidate.shape or reference.ndim != 2:
+        raise ValueError("outputs must have identical (batch, horizon) shapes")
+    if not torch.isfinite(reference).all() or not torch.isfinite(candidate).all():
+        raise ValueError("outputs must be finite")
+    delta = (reference - candidate).abs()
+    p = reference.clamp_min(1e-12)
+    q = candidate.clamp_min(1e-12)
+    return {
+        "max_abs_output_error": float(delta.max().item()),
+        "mean_abs_output_error": float(delta.mean().item()),
+        "mean_kl_pytorch_to_tensorrt": float((p * (p.log() - q.log())).sum(dim=1).mean().item()),
+        "pytorch_mean_schedule_sum": float(reference.sum(dim=1).mean().item()),
+        "tensorrt_mean_schedule_sum": float(candidate.sum(dim=1).mean().item()),
+    }
+
+
 def latency_target_gate(accuracy_passed: bool, batch1_p99_ms: float | None, target_ms: float = 2.0) -> dict:
     if not np.isfinite(target_ms) or target_ms <= 0:
         raise ValueError("latency target must be finite and positive")
@@ -83,13 +101,15 @@ def main():
     ap.add_argument("--steps", type=int, default=4)
     ap.add_argument("--runs", type=int, default=200)
     ap.add_argument("--warmup", type=int, default=50)
-    ap.add_argument("--max-error", type=float, default=0.05)
+    ap.add_argument("--max-error", type=float, default=0.02)
+    ap.add_argument("--accuracy-cases", type=int, default=32)
+    ap.add_argument("--accuracy-seed", type=int, default=20261011)
     ap.add_argument("--output", default="results/tensorrt_latency.json")
     args = ap.parse_args()
     if not torch.cuda.is_available():
         raise SystemExit("CUDA required")
-    if args.steps < 2 or args.runs < 1 or args.warmup < 0 or args.max_error <= 0:
-        ap.error("steps >= 2, runs >= 1, warmup >= 0 and max-error > 0 are required")
+    if args.steps < 2 or args.runs < 1 or args.warmup < 0 or args.max_error <= 0 or args.accuracy_cases < 1:
+        ap.error("steps >= 2, runs >= 1, warmup >= 0, max-error > 0 and accuracy-cases >= 1 are required")
     import tensorrt as trt
     from torch2trt_dynamic import TRTModule
 
@@ -163,6 +183,42 @@ def main():
         float(batch1["tensorrt_int8"]["cuda_event_ms"]["p99_ms"])
         if batch1 is not None else None
     )
+    # Validate many distinct context/noise pairs in both supported batch shapes.
+    # Keep the batch <= 4 because that is the TensorRT optimization profile.
+    accuracy_count = min(args.accuracy_cases, len(feats) - 31)
+    accuracy_starts = np.linspace(0, len(feats) - 32, num=accuracy_count, dtype=int)
+    generator = torch.Generator(device="cuda")
+    generator.manual_seed(args.accuracy_seed)
+    accuracy_by_batch = {}
+    all_reference, all_candidate = [], []
+    for batch_size in (1, 4):
+        refs, cands = [], []
+        for offset in range(0, len(accuracy_starts), batch_size):
+            starts = accuracy_starts[offset:offset + batch_size]
+            context = torch.stack([torch.from_numpy(feats[i:i + 32]) for i in starts]).cuda()
+            x = torch.randn((len(starts), 8), generator=generator, device="cuda")
+            with torch.no_grad():
+                ref_out = fp(context, x.clone())
+                trt_out = trt_model(context, x.clone())
+            if ref_out.shape != trt_out.shape:
+                raise RuntimeError(f"Accuracy output shape mismatch: PyTorch={ref_out.shape}, TensorRT={trt_out.shape}")
+            metrics = output_error_metrics(ref_out, trt_out)
+            if metrics["max_abs_output_error"] > max_seen_error:
+                max_seen_error = metrics["max_abs_output_error"]
+            refs.append(ref_out.detach().float().cpu())
+            cands.append(trt_out.detach().float().cpu())
+        ref_batch = torch.cat(refs, dim=0)
+        trt_batch = torch.cat(cands, dim=0)
+        accuracy_by_batch[str(batch_size)] = {
+            "cases": int(len(ref_batch)),
+            **output_error_metrics(ref_batch, trt_batch),
+        }
+        all_reference.append(ref_batch)
+        all_candidate.append(trt_batch)
+    accuracy_metrics = output_error_metrics(
+        torch.cat(all_reference, dim=0), torch.cat(all_candidate, dim=0)
+    )
+    max_seen_error = max(max_seen_error, accuracy_metrics["max_abs_output_error"])
     accuracy_passed = max_seen_error <= args.max_error
     target_met = bool(
         accuracy_passed and batch1_p99_wall is not None and batch1_p99_wall < 2.0
@@ -183,6 +239,10 @@ def main():
         "steps": args.steps,
         "runs": args.runs,
         "warmup": args.warmup,
+        "accuracy_seed": args.accuracy_seed,
+        "accuracy_cases_per_batch": accuracy_count,
+        "accuracy_by_batch": accuracy_by_batch,
+        "accuracy_metrics": accuracy_metrics,
         **accuracy_gate(max_seen_error, args.max_error),
         "cases": cases,
         "batch1_p99_end_to_end_wall_ms": batch1_p99_wall,
