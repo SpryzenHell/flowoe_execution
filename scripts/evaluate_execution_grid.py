@@ -59,6 +59,37 @@ def rk4_from_initial_noise(model: CFMPolicy, context: torch.Tensor, x0: torch.Te
     return torch.softmax(state, dim=1)
 
 
+def summarize_paired_method(baseline, slippage, completion, schedule_errors, seed=7):
+    """Summarize a method only against the same episodes' TWAP baselines."""
+    baseline_arr = np.asarray(baseline, dtype=np.float64)
+    slippage_arr = np.asarray(slippage, dtype=np.float64)
+    completion_arr = np.asarray(completion, dtype=np.float64)
+    if baseline_arr.ndim != 1 or slippage_arr.ndim != 1 or len(baseline_arr) == 0:
+        raise ValueError("paired samples must be non-empty one-dimensional arrays")
+    if len(baseline_arr) != len(slippage_arr) or len(completion_arr) != len(slippage_arr):
+        raise ValueError("baseline, slippage and completion must contain the same episodes")
+    if not np.isfinite(baseline_arr).all() or not np.isfinite(slippage_arr).all() or not np.isfinite(completion_arr).all():
+        raise ValueError("paired execution samples must be finite")
+    mean, ci = paired_block_bootstrap_ci(
+        baseline_arr, slippage_arr, seed=seed, n_boot=2000, block_size=5
+    )
+    errors = {
+        key: float(np.mean([row[key] for row in schedule_errors]))
+        for key in ("mean_abs_error", "max_abs_error", "mean_kl_reference_to_candidate")
+    }
+    errors["mean_episode_max_abs_error"] = errors.pop("max_abs_error")
+    return {
+        "slippage_bps": summary_stats(slippage_arr, seed=seed, n_boot=2000),
+        "completion_mean": float(completion_arr.mean()),
+        "episodes": int(len(slippage_arr)),
+        "baseline_episodes": int(len(baseline_arr)),
+        "improvement_vs_twap_bps": float(baseline_arr.mean() - slippage_arr.mean()),
+        "paired_improvement_vs_twap_bps": mean,
+        "paired_improvement_ci95_bps": ci,
+        "schedule_error_vs_rk4": errors,
+    }
+
+
 def resolve_input(arg: str | None, patterns: list[str], label: str) -> Path:
     if arg:
         path = Path(arg)
@@ -204,7 +235,8 @@ def main():
         base_completion.append(twap.completion)
         episode_record["twap_slippage_bps"] = twap.slippage_bps
         episode_record["twap_completion"] = twap.completion
-        methods.setdefault("rk4", {"slippage": [], "completion": [], "schedule_errors": []})
+        methods.setdefault("rk4", {"baseline": [], "slippage": [], "completion": [], "schedule_errors": []})
+        methods["rk4"]["baseline"].append(twap.slippage_bps)
         methods["rk4"]["slippage"].append(twap.slippage_bps)
         methods["rk4"]["completion"].append(twap.completion)
         methods["rk4"]["schedule_errors"].append({
@@ -244,7 +276,8 @@ def main():
                 window, schedule, benchmark="trade_vwap", trades=trades,
                 strategy=key,
             )
-            methods.setdefault(key, {"slippage": [], "completion": [], "schedule_errors": []})
+            methods.setdefault(key, {"baseline": [], "slippage": [], "completion": [], "schedule_errors": []})
+            methods[key]["baseline"].append(twap.slippage_bps)
             methods[key]["slippage"].append(execution.slippage_bps)
             methods[key]["completion"].append(execution.completion)
             err = compare_schedules(reference, pred)
@@ -258,26 +291,12 @@ def main():
                 episode_record["methods"][key]["max_abs_error_vs_pytorch_euler"] = raw_error
         episode_records.append(episode_record)
 
-    baseline_arr = np.asarray(baselines, dtype=np.float64)
     summaries = {}
     for name, vals in methods.items():
-        slippage = np.asarray(vals["slippage"], dtype=np.float64)
-        mean, ci = paired_block_bootstrap_ci(
-            baseline_arr, slippage, seed=args.seed, n_boot=2000, block_size=5
+        summaries[name] = summarize_paired_method(
+            vals["baseline"], vals["slippage"], vals["completion"],
+            vals["schedule_errors"], seed=args.seed,
         )
-        summaries[name] = {
-            "slippage_bps": summary_stats(slippage, seed=args.seed, n_boot=2000),
-            "completion_mean": float(np.mean(vals["completion"])),
-            "episodes": int(len(slippage)),
-            "improvement_vs_twap_bps": float(baseline_arr.mean() - slippage.mean()),
-            "paired_improvement_vs_twap_bps": mean,
-            "paired_improvement_ci95_bps": ci,
-            "schedule_error_vs_rk4": {
-                k: float(np.mean([x[k] for x in vals["schedule_errors"]]))
-                for k in ("mean_abs_error", "max_abs_error", "mean_kl_reference_to_candidate")
-            },
-        }
-        summaries[name]["schedule_error_vs_rk4"]["mean_episode_max_abs_error"] = summaries[name]["schedule_error_vs_rk4"].pop("max_abs_error")
 
     training_report = None
     fi_provenance = None
