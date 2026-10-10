@@ -64,6 +64,24 @@ def test_zero_top_level_depth_keeps_features_finite():
     assert np.isfinite(l2_features(book)).all()
 
 
+def test_l2_features_are_prefix_invariant_and_do_not_use_future_rows():
+    book = sample_l2(n=96)
+    idx = np.arange(len(book))
+    book["bid_size0"] = 1.0 + (idx * 3 % 7)
+    book["ask_size0"] = 2.0 + (idx * 5 % 11)
+    # Alter only rows after the cutoff. Earlier features must not change.
+    cutoff = 48
+    altered = book.copy()
+    altered.loc[cutoff:, "bid_size0"] = 1000.0 + idx[cutoff:] * 31
+    altered.loc[cutoff:, "ask_size0"] = 1500.0 + idx[cutoff:] * 19
+    base_features = l2_features(book)
+    altered_features = l2_features(altered)
+    prefix_features = l2_features(book.iloc[:cutoff].copy())
+    assert base_features.shape == altered_features.shape == (96, 45)
+    np.testing.assert_allclose(base_features[:cutoff], altered_features[:cutoff], rtol=0, atol=1e-7)
+    np.testing.assert_allclose(base_features[:cutoff], prefix_features, rtol=0, atol=1e-7)
+
+
 def test_rk4_integrates_exponential():
     result = integrate_ode(lambda _t, x: x, torch.tensor([[1.0]]), 0.0, 1.0, 32)
     assert torch.allclose(result, torch.tensor([[np.e]]), atol=1e-5)
