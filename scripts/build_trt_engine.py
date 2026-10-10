@@ -68,7 +68,7 @@ def register_selu_converter():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--checkpoint", default="results/cfm_policy_smoke.pt")
-    ap.add_argument("--steps", type=int, default=16)
+    ap.add_argument("--steps", type=int, default=4)
     ap.add_argument("--output", default="results/flowoe_int8.pth")
     ap.add_argument("--calibration-size", type=int, default=32)
     args = ap.parse_args()
