@@ -133,8 +133,15 @@ def main():
     if not batches or min(batches) < 1 or not steps or min(steps) < 2:
         ap.error("batches must be positive; every sampler step count must be at least 2")
 
-    from benchmark_cuda_fused import build_extension
-    ext = build_extension()
+    ext = None
+    fused_build_error = None
+    try:
+        from benchmark_cuda_fused import build_extension
+        ext = build_extension()
+    except Exception as exc:
+        # The plain PyTorch Euler and RK4 quality/latency results remain useful
+        # even when the optional fused extension cannot compile on this host.
+        fused_build_error = f"{type(exc).__name__}: {exc}"
     torch.manual_seed(701)
     torch.cuda.manual_seed_all(701)
 
@@ -147,20 +154,9 @@ def main():
         reference = rk4_schedule(model, context, x0, steps=args.reference_steps)
         for nsteps in steps:
             normal = FixedStepCryptoSampler(model, steps=nsteps).cuda().eval()
-            fused = FixedStepCryptoSampler(
-                model, steps=nsteps, fused_step=ext.fused_euler_step
-            ).cuda().eval()
             normal_stats, normal_out = measure(
                 lambda: normal(context, x0.clone()), args.runs, args.warmup
             )
-            fused_stats, fused_out = measure(
-                lambda: fused(context, x0.clone()), args.runs, args.warmup
-            )
-            if (normal_out - fused_out).abs().max().item() > args.max_output_error:
-                raise RuntimeError(
-                    f"Fused output mismatch batch={batch} steps={nsteps}: "
-                    f"{(normal_out - fused_out).abs().max().item()}"
-                )
             def quality(out):
                 q = out.clamp_min(1e-12)
                 p = reference.clamp_min(1e-12)
@@ -171,7 +167,7 @@ def main():
                     "mean_schedule_sum": float(q.sum(1).mean().item()),
                     "minimum_schedule_weight": float(q.min().item()),
                 }
-            results.append({
+            item = {
                 "batch": batch,
                 "steps": nsteps,
                 "context_len": args.context_len,
@@ -184,11 +180,26 @@ def main():
                 "warmup": args.warmup,
                 "reference_schedule": quality(reference),
                 "pytorch_euler": {**normal_stats, **quality(normal_out)},
-                "fused_euler": {**fused_stats, **quality(fused_out)},
-                "fused_vs_pytorch_max_abs_error": float((normal_out - fused_out).abs().max().item()),
-                "speedup_mean_wall": normal_stats["end_to_end_wall_ms"]["mean_ms"] / fused_stats["end_to_end_wall_ms"]["mean_ms"],
-                "speedup_mean_cuda_event": normal_stats["cuda_event_ms"]["mean_ms"] / fused_stats["cuda_event_ms"]["mean_ms"],
-            })
+            }
+            if ext is not None:
+                fused = FixedStepCryptoSampler(
+                    model, steps=nsteps, fused_step=ext.fused_euler_step
+                ).cuda().eval()
+                fused_stats, fused_out = measure(
+                    lambda: fused(context, x0.clone()), args.runs, args.warmup
+                )
+                max_error = float((normal_out - fused_out).abs().max().item())
+                if max_error > args.max_output_error:
+                    raise RuntimeError(
+                        f"Fused output mismatch batch={batch} steps={nsteps}: {max_error}"
+                    )
+                item.update({
+                    "fused_euler": {**fused_stats, **quality(fused_out)},
+                    "fused_vs_pytorch_max_abs_error": max_error,
+                    "speedup_mean_wall": normal_stats["end_to_end_wall_ms"]["mean_ms"] / fused_stats["end_to_end_wall_ms"]["mean_ms"],
+                    "speedup_mean_cuda_event": normal_stats["cuda_event_ms"]["mean_ms"] / fused_stats["cuda_event_ms"]["mean_ms"],
+                })
+            results.append(item)
 
     result = {
         "gpu": torch.cuda.get_device_name(0),
@@ -200,8 +211,10 @@ def main():
         "steps": steps,
         "runs": args.runs,
         "warmup": args.warmup,
+        "fused_extension_available": ext is not None,
+        "fused_extension_build_error": fused_build_error,
         "results": results,
-        "note": "Synthetic metrics are not real-market evidence. Quality error compares normalized schedules from fixed-step Euler against a same-noise RK4 reference.",
+        "note": "Synthetic metrics are not real-market evidence. Quality error compares normalized schedules from fixed-step Euler against a same-noise RK4 reference. Fused results are omitted if the optional extension cannot compile.",
     }
     out = Path(args.output)
     if not out.is_absolute():
