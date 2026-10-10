@@ -86,6 +86,7 @@ def evaluate_one(
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--checkpoint", required=True)
+    ap.add_argument("--training-report", help="Optional JSON training report that records the FI-2010 provenance.")
     ap.add_argument("--l2", help="Validated L2 CSV; defaults to the first real *_l2.csv file.")
     ap.add_argument("--trades", help="Validated trade CSV; defaults to the first real *_trades.csv file.")
     ap.add_argument("--side", choices=["buy", "sell"], required=True)
@@ -175,7 +176,16 @@ def main():
     starts = list(range(ntrain, len(l2) - HORIZON, HORIZON * 3))
     if not starts:
         raise SystemExit("No held-out execution episodes were formed")
+    episode_records = []
     for episode_idx, i in enumerate(starts):
+        episode_record = {
+            "episode_index": episode_idx,
+            "l2_start": str(l2.iloc[i].timestamp),
+            "l2_end": str(l2.iloc[i + HORIZON - 1].timestamp),
+            "twap_slippage_bps": None,
+            "twap_completion": None,
+            "methods": {},
+        }
         ctx = x_crypto[i - CTX_LEN:i].unsqueeze(0)
         # Reset the same per-episode latent for every method, making slippage
         # and schedule differences paired rather than noise-confounded.
@@ -191,6 +201,8 @@ def main():
         )
         baselines.append(twap.slippage_bps)
         base_completion.append(twap.completion)
+        episode_record["twap_slippage_bps"] = twap.slippage_bps
+        episode_record["twap_completion"] = twap.completion
         methods.setdefault("rk4", {"slippage": [], "completion": [], "schedule_errors": []})
         methods["rk4"]["slippage"].append(twap.slippage_bps)
         methods["rk4"]["completion"].append(twap.completion)
@@ -205,6 +217,11 @@ def main():
         )
         methods["rk4"]["slippage"][-1] = reference_result.slippage_bps
         methods["rk4"]["completion"][-1] = reference_result.completion
+        episode_record["methods"]["rk4"] = {
+            "slippage_bps": reference_result.slippage_bps,
+            "completion": reference_result.completion,
+            "schedule_error": {"mean_abs_error": 0.0, "max_abs_error": 0.0, "mean_kl_reference_to_candidate": 0.0},
+        }
         for key, sampler in samplers.items():
             pred = evaluate_one(model, sampler, ctx, x0)
             schedule = pred[0].detach().cpu().numpy()
@@ -217,6 +234,11 @@ def main():
             methods[key]["completion"].append(execution.completion)
             err = compare_schedules(reference, pred)
             methods[key]["schedule_errors"].append(err)
+            episode_record["methods"][key] = {
+                "slippage_bps": execution.slippage_bps,
+                "completion": execution.completion,
+                "schedule_error": err,
+            }
             if key.startswith("fused_euler_"):
                 # Track disagreement with the matching PyTorch Euler output,
                 # not only its difference from the RK4 reference.
@@ -227,6 +249,8 @@ def main():
                     raise RuntimeError(
                         f"Fused output mismatch in episode {episode_idx}, {key}: {raw_error}"
                     )
+                episode_record["methods"][key]["max_abs_error_vs_pytorch_euler"] = raw_error
+        episode_records.append(episode_record)
 
     baseline_arr = np.asarray(baselines, dtype=np.float64)
     summaries = {}
@@ -247,6 +271,32 @@ def main():
                 for k in ("mean_abs_error", "max_abs_error", "mean_kl_reference_to_candidate")
             },
         }
+        summaries[name]["schedule_error_vs_rk4"]["mean_episode_max_abs_error"] = summaries[name]["schedule_error_vs_rk4"].pop("max_abs_error")
+
+    training_report = None
+    fi_provenance = None
+    if args.training_report:
+        report_path = Path(args.training_report)
+        if not report_path.is_absolute():
+            report_path = ROOT / report_path
+        if not report_path.exists():
+            raise SystemExit(f"Training report not found: {report_path}")
+        training_report = {
+            "path": str(report_path),
+            "sha256": sha256(report_path),
+        }
+        try:
+            source_report = json.loads(report_path.read_text(encoding="utf-8"))
+            fi_provenance = {
+                "fi_path": source_report.get("fi_path"),
+                "fi_sha256": source_report.get("fi_sha256"),
+                "fi_label_encoding_detected": source_report.get("fi_label_encoding_detected"),
+                "training_seed": source_report.get("seed"),
+                "training_windows": source_report.get("train_windows"),
+                "fi_windows": source_report.get("fi_windows"),
+            }
+        except Exception:
+            fi_provenance = {"parse_error": "could not parse training report"}
 
     result = {
         "status": "passed",
@@ -269,6 +319,8 @@ def main():
         "l2_window_end": str(end),
         "checkpoint": str(checkpoint),
         "checkpoint_sha256": sha256(checkpoint),
+        "training_report": training_report,
+        "fi_training_provenance": fi_provenance,
         "l2_path": str(l2_path),
         "l2_sha256": sha256(l2_path),
         "trades_path": str(trade_path),
@@ -278,6 +330,7 @@ def main():
         "cuda_version": torch.version.cuda,
         "fused_extension_error": fused_error,
         "methods": summaries,
+        "episode_results": episode_records,
         "note": "Execution-simulator slippage against market trade VWAP; no market-impact or real order-fill claim. Paired moving-block bootstrap uses 5 consecutive episodes per block.",
     }
     out = Path(args.report)
