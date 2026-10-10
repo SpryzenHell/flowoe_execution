@@ -33,9 +33,13 @@ def test_normalize_fi2010_labels_auto_when_observed_range_is_unambiguous(raw, ex
     assert detected == expected_encoding
 
 
-def test_normalize_fi2010_labels_auto_rejects_ambiguous_subset():
+@pytest.mark.parametrize("raw", [
+    [[1, 2], [2, 1]],
+    [[0, 1], [1, 0]],
+])
+def test_normalize_fi2010_labels_auto_rejects_ambiguous_subset(raw):
     with pytest.raises(ValueError, match="Cannot infer"):
-        normalize_fi2010_labels(torch.tensor([[1, 2], [2, 1]]), encoding="auto")
+        normalize_fi2010_labels(torch.tensor(raw), encoding="auto")
 
 
 @pytest.mark.parametrize(
