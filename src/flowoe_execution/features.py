@@ -13,7 +13,13 @@ def l2_features(snapshots: pd.DataFrame, levels: int = 10) -> np.ndarray:
     da=(a[[f'ask{i}' for i in range(levels)]].to_numpy(np.float32)-mid[:,None])/np.maximum(mid[:,None],1e-8)
     x=np.concatenate([db,da,np.log1p(bv),np.log1p(av),spread[:,None],micro_dev[:,None],imbalance[:,None],vol[:,None]],1)
     assert x.shape[1]==44
-    ofi=np.r_[0.0,np.diff(bv[:,0]-av[:,0])]; ofi=np.tanh(ofi/(np.std(ofi)+1e-6))[:,None]
+    # Causal OFI scaling: use only the current and preceding observations.
+    # A whole-dataset standard deviation would let future evaluation rows
+    # influence earlier training features.
+    raw_ofi=np.r_[0.0,np.diff(bv[:,0]-av[:,0])]
+    scale=pd.Series(raw_ofi).rolling(32,min_periods=2).std().to_numpy(np.float32)
+    scale=np.nan_to_num(scale,nan=0.0,posinf=0.0,neginf=0.0)
+    ofi=np.tanh(raw_ofi/np.maximum(scale,1e-6))[:,None]
     return np.concatenate([x,ofi],1).astype(np.float32)
 
 def features_from_fi2010(features: np.ndarray) -> np.ndarray:
