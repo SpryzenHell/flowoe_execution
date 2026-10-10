@@ -69,7 +69,9 @@ def main():
         raise SystemExit("TensorRT engine or matching checkpoint is missing")
     model = CFMPolicy(8).cuda().eval()
     model.load_state_dict(torch.load(checkpoint, map_location="cuda", weights_only=True))
-    fp = FixedStepCryptoSampler(model, args.steps).cuda().eval()
+    # Match the export path exactly: TensorRT traces scalar time values,
+    # not a batch-sized tensor produced by x[:, 0].
+    fp = FixedStepCryptoSampler(model, args.steps, scalar_time=True).cuda().eval()
     trt_model = TRTModule()
     trt_model.load_state_dict(torch.load(engine_path, map_location="cuda", weights_only=False))
 
