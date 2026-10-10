@@ -197,7 +197,7 @@ class ProbabilityFlowODEPolicy(nn.Module):
 class FixedStepCryptoSampler(nn.Module):
     """Fixed-step sampler suitable for TensorRT/CUDA benchmarking."""
 
-    def __init__(self, policy: CFMPolicy, steps: int = 16, fused_step=None):
+    def __init__(self, policy: CFMPolicy, steps: int = 4, fused_step=None):
         super().__init__()
         if steps < 2:
             raise ValueError("steps must be at least 2")
