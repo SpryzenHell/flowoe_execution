@@ -40,6 +40,8 @@ src/flowoe_execution/
 
 scripts/
 ├── run_experiment.py
+├── evaluate_execution_grid.py
+├── run_execution_sweep.py
 ├── run_analysis_suite.py
 ├── validate_real_data.py
 ├── reconstruct_binance_t_depth.py
@@ -321,6 +323,28 @@ python scripts/run_experiment.py --help
 ```
 
 Each real-data result records SHA-256 hashes of the input files.
+
+
+## Reproducible real-data sampler sweep
+
+For an end-to-end comparison, first reconstruct a contiguous Binance USD-M Futures book window with matching trade prints, then validate the files:
+
+    python scripts/validate_real_data.py --fi data/real/fi2010/Train_Dst_NoAuction_ZScore_CF_7.txt --l2 data/real/crypto/BTCUSDT_l2.csv --trades data/real/crypto/BTCUSDT_trades.csv
+
+Run three initialization/training seeds for both buy and sell, and compare the RK4 reference with fixed-step Euler at 2, 3, 4 and 6 grid points:
+
+    python scripts/run_execution_sweep.py --fi data/real/fi2010/Train_Dst_NoAuction_ZScore_CF_7.txt --l2 data/real/crypto/BTCUSDT_l2.csv --trades data/real/crypto/BTCUSDT_trades.csv --seeds 7,17,27 --sides buy,sell --euler-steps 2,3,4,6 --epochs 20 --quantity 0.5 --train-ratio 0.60 --include-fused --out-dir results/execution_sweep
+
+The sweep creates a distinct training report and checkpoint per seed/side, runs the sampler grid on the same held-out windows with matching initial noise, and retains per-episode outputs. It writes a run manifest and SWEEP_RESULTS.md under results/execution_sweep. If the fused extension fails to build or diverges by more than 1e-4 from the matching PyTorch Euler output, that configuration is excluded and the failure is recorded rather than discarding the other measurements.
+
+The paired improvement interval resamples blocks of five consecutive execution episodes to reduce dependence between nearby windows. The sweep also reports variation across training seeds and completion rates. These are historical replay estimates against trade VWAP; they are not live exchange fills or a model of market impact.
+
+## Leakage controls and evaluation rules
+
+The 45-dimensional L2 feature builder now scales order-flow imbalance using a trailing 32-observation statistic, not a full-dataset statistic. This prevents future evaluation rows from influencing earlier OFI values. A prefix-invariance regression test changes only future book sizes and verifies that earlier features remain unchanged.
+
+FI-2010 training windows keep the entire label horizon inside the chronological training split. The evaluator stores input hashes and training-report provenance, and uses the same latent noise for RK4 and every Euler configuration. Synthetic smoke results, real-data replay results and GPU inference timings must remain separate.
+
 
 ## L2 depth reconstruction
 
