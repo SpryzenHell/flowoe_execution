@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from flowoe_execution.metrics import paired_block_bootstrap_ci
 from flowoe_execution.provenance import source_revision, workflow_revision
 
 
@@ -70,14 +71,16 @@ def load_json(path: Path) -> dict:
 
 def aggregate_reports(records: list[dict]) -> dict:
     groups: dict[tuple[str, str], list[dict]] = {}
+    episode_groups: dict[tuple[str, str], dict[int, dict[str, dict]]] = {}
     for record in records:
         data = load_json(Path(record["evaluation_report"]))
         if data.get("status") != "passed":
             continue
         side = data["side"]
+        seed = int(data["seed"])
         for method, summary in data["methods"].items():
             groups.setdefault((side, method), []).append({
-                "seed": int(data["seed"]),
+                "seed": seed,
                 "mean_slippage_bps": float(summary["slippage_bps"]["mean"]),
                 "mean_improvement_bps": float(summary["paired_improvement_vs_twap_bps"]),
                 "ci95": summary["paired_improvement_ci95_bps"],
@@ -85,12 +88,64 @@ def aggregate_reports(records: list[dict]) -> dict:
                 "episodes": int(summary["episodes"]),
                 "schedule_error": summary["schedule_error_vs_rk4"],
             })
+            seed_windows = episode_groups.setdefault((side, method), {}).setdefault(seed, {})
+            for episode in data.get("episode_results", []):
+                episode_method = episode.get("methods", {}).get(method)
+                if episode_method is None:
+                    continue
+                start = episode.get("l2_start")
+                end = episode.get("l2_end")
+                if start is None or end is None:
+                    continue
+                window_key = f"{start}|{end}"
+                seed_windows[window_key] = {
+                    "episode_index": int(episode.get("episode_index", len(seed_windows))),
+                    "twap_slippage_bps": float(episode["twap_slippage_bps"]),
+                    "policy_slippage_bps": float(episode_method["slippage_bps"]),
+                }
+
     result = {}
     for (side, method), rows in sorted(groups.items()):
         improvements = [r["mean_improvement_bps"] for r in rows]
         slips = [r["mean_slippage_bps"] for r in rows]
+        seed_ids = sorted(r["seed"] for r in rows)
+        pooled = None
+        seed_maps = episode_groups.get((side, method), {})
+        available = [seed_maps[s] for s in seed_ids if s in seed_maps]
+        if available:
+            common = set.intersection(*(set(m) for m in available))
+            if common:
+                ordered = sorted(
+                    common,
+                    key=lambda k: min(m[k]["episode_index"] for m in available),
+                )
+                # Average each timestamp's TWAP and model result across seed fits,
+                # then bootstrap paired differences in contiguous time blocks.
+                baseline = [
+                    statistics.fmean(seed_maps[s][k]["twap_slippage_bps"] for s in seed_ids)
+                    for k in ordered
+                ]
+                policy = [
+                    statistics.fmean(seed_maps[s][k]["policy_slippage_bps"] for s in seed_ids)
+                    for k in ordered
+                ]
+                mean_improvement, ci = paired_block_bootstrap_ci(
+                    baseline, policy, seed=7, n_boot=5000, alpha=0.05, block_size=5,
+                )
+                pooled = {
+                    "seed_count": len(seed_ids),
+                    "shared_episodes": len(ordered),
+                    "mean_paired_improvement_vs_twap_bps": mean_improvement,
+                    "paired_improvement_ci95_bps": [float(ci[0]), float(ci[1])],
+                    "ci_crosses_zero": bool(ci[0] <= 0.0 <= ci[1]),
+                    "bootstrap": "paired circular moving-block bootstrap",
+                    "block_size_episodes": 5,
+                    "bootstrap_resamples": 5000,
+                    "bootstrap_seed": 7,
+                    "inference_scope": "the shared evaluation timestamps averaged across these trained seeds; not independent market days",
+                }
         result.setdefault(side, {})[method] = {
-            "seeds": [r["seed"] for r in rows],
+            "seeds": seed_ids,
             "successful_seed_runs": len(rows),
             "episodes_per_seed": [r["episodes"] for r in rows],
             "mean_slippage_bps_across_seeds": statistics.fmean(slips),
@@ -103,8 +158,9 @@ def aggregate_reports(records: list[dict]) -> dict:
             "max_seed_improvement_bps": max(improvements),
             "seed_runs": rows,
         }
+        if pooled is not None:
+            result[side][method]["pooled_by_window"] = pooled
     return result
-
 
 def write_markdown(path: Path, manifest: dict) -> None:
     lines = [
@@ -122,7 +178,7 @@ def write_markdown(path: Path, manifest: dict) -> None:
         f"- Euler step counts: {', '.join(str(x) for x in manifest['euler_steps'])}",
         f"- Fused path requested: {manifest['include_fused']}",
         "",
-        "The table averages per-seed results. Confidence intervals remain per seed and use a paired moving-block bootstrap over contiguous evaluation episodes. The market execution simulator is not a live exchange order-fill model.",
+        "The first table averages per-seed results. Per-seed confidence intervals use paired moving-block bootstrap. The pooled intervals below average the three seed fits for each shared timestamp before a paired circular moving-block bootstrap; they remain conditional on this single held-out market window. The market execution simulator is not a live exchange order-fill model.",
         "",
         "## Results by side and sampler",
         "",
@@ -138,6 +194,26 @@ def write_markdown(path: Path, manifest: dict) -> None:
                 f"{values['mean_paired_improvement_vs_twap_bps']:.6f} | "
                 f"{values['between_seed_improvement_sd_bps']:.6f} | "
                 f"[{values['min_seed_improvement_bps']:.6f}, {values['max_seed_improvement_bps']:.6f}] |"
+            )
+    lines += [
+        "",
+        "## Pooled paired block-bootstrap intervals",
+        "",
+        "Positive improvement means lower signed slippage than TWAP. Each timestamp's policy and TWAP slippage are averaged across the available seed fits before resampling paired contiguous blocks. The 95% interval is conditional on this one evaluation window and these trained seeds.",
+        "",
+        "| Side | Method | Seeds | Shared episodes | Mean improvement (bps) | Paired 95% CI (bps) | Crosses zero? |",
+        "|---|---|---:|---:|---:|---|---|",
+    ]
+    for side, methods in manifest["aggregate"].items():
+        for method, values in methods.items():
+            pooled = values.get("pooled_by_window")
+            if not pooled:
+                continue
+            ci = pooled["paired_improvement_ci95_bps"]
+            lines.append(
+                f"| {side} | {method} | {pooled['seed_count']} | {pooled['shared_episodes']} | "
+                f"{pooled['mean_paired_improvement_vs_twap_bps']:.6f} | "
+                f"[{ci[0]:.6f}, {ci[1]:.6f}] | {'yes' if pooled['ci_crosses_zero'] else 'no'} |"
             )
     lines += [
         "",
