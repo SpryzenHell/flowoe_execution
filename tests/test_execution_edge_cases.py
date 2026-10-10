@@ -123,6 +123,37 @@ def test_fixed_step_dynamic_time_vector_matches_constant_time_reference():
 
 
 @pytest.mark.parametrize("steps", [2, 4, 8])
+def test_legacy_vector_field_checkpoint_migrates_exactly():
+    torch.manual_seed(77)
+    source = CFMPolicy(8).eval()
+    modern = source.state_dict()
+    legacy = {}
+    for key, value in modern.items():
+        if key == "vf.input.weight":
+            time_w = modern["vf.time_weight"]
+            legacy["vf.net.0.weight"] = torch.cat([value, time_w[:, None]], dim=1)
+        elif key == "vf.time_weight":
+            continue
+        elif key == "vf.input.bias":
+            legacy["vf.net.0.bias"] = value
+        elif key.startswith("vf.net.1."):
+            legacy[key.replace("vf.net.1.", "vf.net.2.", 1)] = value
+        elif key.startswith("vf.net.3."):
+            legacy[key.replace("vf.net.3.", "vf.net.4.", 1)] = value
+        else:
+            legacy[key] = value
+    restored = CFMPolicy(8).eval()
+    restored.load_state_dict(legacy, strict=True)
+    ctx = torch.randn(4, 96)
+    x = torch.randn(4, 8)
+    for time in (0.0, 0.2, 0.75):
+        want = source.vf(time, x, ctx)
+        got = restored.vf(time, x, ctx)
+        assert torch.allclose(got, want, atol=0, rtol=0)
+    t = torch.tensor([0.0, 0.2, 0.5, 0.75])
+    assert torch.allclose(restored.vf(t, x, ctx), source.vf(t, x, ctx), atol=0, rtol=0)
+
+
 def test_scalar_time_sampler_matches_vector_time_sampler(steps):
     torch.manual_seed(101)
     model = CFMPolicy(8).eval()
